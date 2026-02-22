@@ -38,7 +38,7 @@
     }
     .card h2{margin:0 0 10px;font-size:15px;}
     label{font-size:12px;color:var(--muted);display:block;margin-bottom:6px;}
-    input[type="number"], input[type="text"], select{
+    input[type="number"], select{
       width:100%;
       padding:10px 12px;
       border:1px solid var(--line);
@@ -139,7 +139,7 @@
     .modalHeader h3{margin:0;font-size:15px}
     .modalHeader .meta{margin-top:4px;color:var(--muted);font-size:12px}
 
-    .historyList{display:flex;flex-direction:column;gap:10px;max-height:560px;overflow:auto;padding-right:6px;}
+    .historyList{display:flex;flex-direction:column;gap:10px;max-height:520px;overflow:auto;padding-right:6px;}
     .histItem{
       border:1px solid var(--line);border-radius:14px;padding:12px;background:#fff;
       display:flex;gap:10px;justify-content:space-between;align-items:flex-start;
@@ -150,6 +150,15 @@
     .histItem .right{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
     .badge{border:1px solid var(--line);border-radius:999px;padding:6px 10px;font-size:12px;background:#fff;color:#374151;white-space:nowrap;}
     .badge.good{border-color:#86efac;background:#dcfce7}
+    .avgBox{
+      border:1px solid var(--line);
+      border-radius:14px;
+      padding:12px;
+      background:#fff;
+      margin-bottom:12px;
+    }
+    .avgTitle{font-weight:950;font-size:13px}
+    .avgMeta{margin-top:4px;color:var(--muted);font-size:12px}
 
     .nav{display:flex;gap:8px;flex-wrap:wrap;align-items:center;justify-content:flex-end}
     .dateLabel{font-weight:950;color:#111827}
@@ -162,18 +171,10 @@
       margin:12px 0;
       background:#fff;
     }
-    .planTop{
-      display:flex;justify-content:space-between;gap:10px;align-items:flex-start;flex-wrap:wrap;
-    }
     .planName{font-weight:950;font-size:14px}
     .planSub{margin-top:4px;color:var(--muted);font-size:12px}
     .planMetaLines{margin-top:10px;color:var(--muted);font-size:12px;line-height:1.35}
-    .planInputRow{
-      display:grid;
-      grid-template-columns: 1fr;
-      gap:10px;
-      margin-top:10px;
-    }
+    .planInputRow{margin-top:10px}
     .miniChecks{display:flex;gap:14px;flex-wrap:wrap;align-items:center;margin-top:10px}
     .miniChecks label{margin:0;color:var(--muted);font-size:12px;display:flex;gap:8px;align-items:center}
     .miniChecks input{width:auto}
@@ -302,13 +303,19 @@
 
         <div class="btns">
           <button id="copyBtn" type="button">Copy backup</button>
-          <button id="deleteBtn" class="danger" type="button">Delete day</button>
+          <button id="resetBtn" class="danger" type="button">Reset day</button>
         </div>
       </div>
 
       <div class="card">
         <h2>History (latest first)</h2>
         <div class="small muted" style="margin-bottom:10px">Tap “Load” to bring a day back.</div>
+
+        <div class="avgBox" id="avgBox" style="display:none">
+          <div class="avgTitle" id="avgTitle">7‑day average: —</div>
+          <div class="avgMeta" id="avgMeta">Uses 7 weigh-ins from a 10‑day window ending on the day you’re viewing.</div>
+        </div>
+
         <div class="historyList" id="historyList"></div>
       </div>
     </div>
@@ -414,8 +421,8 @@
     repsIncrement: 1
   };
 
-  const STORE_KEY = "ben_lift_daily_tracker_v5_store";
-  const SETTINGS_KEY = "ben_lift_daily_tracker_v5_settings";
+  const STORE_KEY = "ben_lift_daily_tracker_v6_store";
+  const SETTINGS_KEY = "ben_lift_daily_tracker_v6_settings";
 
   const el = (id)=>document.getElementById(id);
 
@@ -452,10 +459,9 @@
     const dt = new Date(y, m-1, d);
     return dt.toLocaleDateString(undefined, { weekday:"long", year:"numeric", month:"short", day:"numeric" });
   }
-  function sortedDatesDesc(){
-    return Object.keys(store.days).sort((a,b)=> b.localeCompare(a));
-  }
+  function sortedDatesDesc(){ return Object.keys(store.days).sort((a,b)=> b.localeCompare(a)); }
 
+  // UI refs
   const dateLabel = el("dateLabel");
   const prevDayBtn = el("prevDayBtn");
   const nextDayBtn = el("nextDayBtn");
@@ -485,15 +491,20 @@
   const energyHint = el("energyHint");
 
   const copyBtn = el("copyBtn");
-  const deleteBtn = el("deleteBtn");
+  const resetBtn = el("resetBtn");
   const historyList = el("historyList");
 
+  const avgBox = el("avgBox");
+  const avgTitle = el("avgTitle");
+
+  // plan modal
   const planBackdrop = el("planBackdrop");
   const planTitle = el("planTitle");
   const planMeta = el("planMeta");
   const planRows = el("planRows");
   const closePlanBtn = el("closePlanBtn");
 
+  // settings modal
   const settingsBackdrop = el("settingsBackdrop");
   const closeSettingsBtn = el("closeSettingsBtn");
   const setStepsGoal = el("setStepsGoal");
@@ -503,10 +514,12 @@
   const repSettings = el("repSettings");
   const resetSettingsBtn = el("resetSettingsBtn");
 
+  // state
   let selectedDate = todayISO();
   let stressVal = null;
   let energyVal = null;
 
+  // autosave
   let saveTimer = null;
   function queueAutoSave(){
     clearTimeout(saveTimer);
@@ -516,6 +529,7 @@
     store.days[selectedDate] = collectEditorData();
     saveJSON(STORE_KEY, store);
     renderHistory();
+    renderWeightAverage();
   }
 
   function refreshGoalTexts(){
@@ -546,16 +560,22 @@
     proteinChk.checked = p >= settings.goals.protein;
   }
 
+  // Toggle behavior (fixed):
+  // - On = fill goal into input
+  // - Off = clear input
   stepsChk.addEventListener("change", ()=>{
-    if(stepsChk.checked) steps.value = String(settings.goals.steps);
+    steps.value = stepsChk.checked ? String(settings.goals.steps) : "";
+    syncChecksFromInputs();
     queueAutoSave();
   });
   calsChk.addEventListener("change", ()=>{
-    if(calsChk.checked) cals.value = String(settings.goals.calories);
+    cals.value = calsChk.checked ? String(settings.goals.calories) : "";
+    syncChecksFromInputs();
     queueAutoSave();
   });
   proteinChk.addEventListener("change", ()=>{
-    if(proteinChk.checked) protein.value = String(settings.goals.protein);
+    protein.value = proteinChk.checked ? String(settings.goals.protein) : "";
+    syncChecksFromInputs();
     queueAutoSave();
   });
   activityChk.addEventListener("change", queueAutoSave);
@@ -567,6 +587,7 @@
     });
   });
 
+  // 1–10 scales
   function buildScale(rowEl, hintEl, setter){
     rowEl.innerHTML = "";
     for(let i=1;i<=10;i++){
@@ -594,6 +615,7 @@
   buildScale(stressRow, stressHint, (v)=>{ stressVal = v; });
   buildScale(energyRow, energyHint, (v)=>{ energyVal = v; });
 
+  // modals
   function openModal(backdrop){ backdrop.classList.add("show"); backdrop.setAttribute("aria-hidden","false"); }
   function closeModal(backdrop){ backdrop.classList.remove("show"); backdrop.setAttribute("aria-hidden","true"); }
 
@@ -603,6 +625,7 @@
   closeSettingsBtn.addEventListener("click", ()=>closeModal(settingsBackdrop));
   settingsBackdrop.addEventListener("click", (e)=>{ if(e.target === settingsBackdrop) closeModal(settingsBackdrop); });
 
+  // plan helpers
   function escapeAttr(v){ return (v===null||v===undefined) ? "" : String(v).replaceAll('"','&quot;'); }
 
   function getLogValue(raw){
@@ -728,19 +751,14 @@
         : todayValExisting;
 
       const showFlags = (ex.type === "weight");
-
       const reps = settings.reps?.[ex.key] ?? ex.repsDefault;
       const repLine = (ex.type === "time") ? "near-failure (time)" : `${reps} reps`;
 
       const card = document.createElement("div");
       card.className = "planCard";
       card.innerHTML = `
-        <div class="planTop">
-          <div>
-            <div class="planName">${ex.name}</div>
-            <div class="planSub">${ex.sets} sets × ${repLine} • ${ex.guide}</div>
-          </div>
-        </div>
+        <div class="planName">${ex.name}</div>
+        <div class="planSub">${ex.sets} sets × ${repLine} • ${ex.guide}</div>
 
         <div class="planMetaLines">
           <div><strong>Previous:</strong> ${prevText}</div>
@@ -748,10 +766,8 @@
         </div>
 
         <div class="planInputRow">
-          <div>
-            <label class="small muted">${inputLabel(ex)}</label>
-            <input class="valInput" type="number" step="${ex.type==='weight' ? '0.5' : '1'}" inputmode="decimal" value="${escapeAttr(todayVal)}" />
-          </div>
+          <label class="small muted">${inputLabel(ex)}</label>
+          <input class="valInput" type="number" step="${ex.type==='weight' ? '0.5' : '1'}" inputmode="decimal" value="${escapeAttr(todayVal)}" />
         </div>
 
         ${showFlags ? `
@@ -800,9 +816,9 @@
     openModal(planBackdrop);
     queueAutoSave();
   }
-
   openPlanBtn.addEventListener("click", openPlanModal);
 
+  // Settings
   function openSettings(){
     setStepsGoal.value = settings.goals.steps;
     setCalsGoal.value = settings.goals.calories;
@@ -859,15 +875,14 @@
   settingsBtn.addEventListener("click", openSettings);
 
   resetSettingsBtn.addEventListener("click", ()=>{
-    if(confirm("Reset settings to defaults?")){
-      settings = JSON.parse(JSON.stringify(DEFAULT_SETTINGS));
-      saveJSON(SETTINGS_KEY, settings);
-      refreshGoalTexts();
-      closeModal(settingsBackdrop);
-      queueAutoSave();
-    }
+    settings = JSON.parse(JSON.stringify(DEFAULT_SETTINGS));
+    saveJSON(SETTINGS_KEY, settings);
+    refreshGoalTexts();
+    closeModal(settingsBackdrop);
+    queueAutoSave();
   });
 
+  // Day data
   function collectEditorData(){
     syncChecksFromInputs();
     return {
@@ -922,9 +937,11 @@
 
     activityChk.checked = !!day.goals?.activityDone;
 
+    // Keep user's stored toggle state, but our toggle change handlers can override inputs.
     stepsChk.checked = !!day.goals?.stepsMet;
     calsChk.checked = !!day.goals?.caloriesMet;
     proteinChk.checked = !!day.goals?.proteinMet;
+
     syncChecksFromInputs();
 
     stressVal = (day.checkin?.stress ?? null);
@@ -933,10 +950,12 @@
     setScaleValue(energyRow, energyHint, energyVal);
   }
 
+  // Navigation + midnight rollover
   function setSelectedDate(iso){
     selectedDate = iso;
     dateLabel.textContent = prettyDate(selectedDate);
     loadDayIntoEditor(selectedDate);
+    renderWeightAverage();
   }
   prevDayBtn.addEventListener("click", ()=> setSelectedDate(addDaysISO(selectedDate, -1)));
   nextDayBtn.addEventListener("click", ()=> setSelectedDate(addDaysISO(selectedDate, +1)));
@@ -957,6 +976,35 @@
     queueAutoSave();
   });
 
+  // Reset day (no confirmation)
+  resetBtn.addEventListener("click", ()=>{
+    delete store.days[selectedDate];
+    saveJSON(STORE_KEY, store);
+    loadDayIntoEditor(selectedDate);
+    renderHistory();
+    renderWeightAverage();
+  });
+
+  // Weight average (7 weigh-ins within a 10-day window ending on viewed day)
+  function renderWeightAverage(){
+    const weights = [];
+    for(let i=0;i<10;i++){
+      const d = addDaysISO(selectedDate, -i);
+      const w = store.days[d]?.bodyWeight;
+      const n = Number(w);
+      if(isFinite(n) && n > 0) weights.push({ date: d, w: n });
+    }
+    if(weights.length >= 7){
+      const use = weights.slice(0,7); // most recent 7 weigh-ins within window
+      const avg = use.reduce((s,x)=>s+x.w,0)/use.length;
+      avgTitle.textContent = `7‑day average: ${avg.toFixed(1)} lb`;
+      avgBox.style.display = "block";
+    } else {
+      avgBox.style.display = "none";
+    }
+  }
+
+  // History
   function renderHistory(){
     const dates = sortedDatesDesc();
     historyList.innerHTML = "";
@@ -1000,28 +1048,22 @@
       });
     });
   }
-//
+
+  // Copy backup
   copyBtn.addEventListener("click", async ()=>{
     const payload = { date: selectedDate, data: store.days[selectedDate] || collectEditorData() };
     const text = JSON.stringify(payload, null, 2);
     try{ await navigator.clipboard.writeText(text); alert("Copied day as JSON to clipboard."); }
     catch(e){ prompt("Copy this JSON:", text); }
   });
-  deleteBtn.addEventListener("click", ()=>{
-    if(!store.days[selectedDate]){ alert("Nothing saved for this day."); return; }
-    if(confirm(`Delete ${prettyDate(selectedDate)}? This can’t be undone.`)){
-      delete store.days[selectedDate];
-      saveJSON(STORE_KEY, store);
-      loadDayIntoEditor(selectedDate);
-      renderHistory();
-    }
-  });
 
+  // INIT
   refreshGoalTexts();
   setSelectedDate(selectedDate);
   workoutDesc.textContent = workoutDescription(workoutSelect.value);
   updateOpenPlanVisibility();
   renderHistory();
+  renderWeightAverage();
   syncChecksFromInputs();
 })();
 </script>
