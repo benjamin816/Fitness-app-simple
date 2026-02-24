@@ -15,6 +15,10 @@
       --radius:16px;
       --accent:#111827;
       --danger:#b91c1c;
+      --warn:#b45309;
+      --warnBg:#fffbeb;
+      --ok:#166534;
+      --okBg:#dcfce7;
     }
     *{box-sizing:border-box}
     body{
@@ -98,7 +102,7 @@
       background:#fff;border:1px solid var(--line);
       transition:left .15s ease, border-color .15s ease;
     }
-    .switchLabel input:checked + .slider{background:#dcfce7;border-color:#86efac;}
+    .switchLabel input:checked + .slider{background:var(--okBg);border-color:#86efac;}
     .switchLabel input:checked + .slider::after{left:21px;border-color:#86efac;}
 
     /* 1-10 picker */
@@ -149,7 +153,8 @@
     .histItem .meta{margin-top:4px;color:var(--muted);font-size:12px}
     .histItem .right{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
     .badge{border:1px solid var(--line);border-radius:999px;padding:6px 10px;font-size:12px;background:#fff;color:#374151;white-space:nowrap;}
-    .badge.good{border-color:#86efac;background:#dcfce7}
+    .badge.good{border-color:#86efac;background:var(--okBg); color:var(--ok);}
+    .badge.warn{border-color:#fbbf24;background:var(--warnBg); color:var(--warn);}
     .avgBox{
       border:1px solid var(--line);
       border-radius:14px;
@@ -178,6 +183,9 @@
     .miniChecks{display:flex;gap:14px;flex-wrap:wrap;align-items:center;margin-top:10px}
     .miniChecks label{margin:0;color:var(--muted);font-size:12px;display:flex;gap:8px;align-items:center}
     .miniChecks input{width:auto}
+    .flagRow{display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap;margin-top:10px}
+    .flagRow .left{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+    .flagRow .right{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
   </style>
 </head>
 
@@ -186,7 +194,7 @@
     <header>
       <div>
         <h1>Lift + Daily Goals Tracker</h1>
-        <div class="sub">Auto-saves every change. Uses your phone’s local time (EST/EDT). No accounts.</div>
+        <div class="sub">Auto-saves every change. Local time. No accounts. v7 adds stall + upgrade suggestions.</div>
       </div>
 
       <div class="nav">
@@ -312,8 +320,8 @@
         <div class="small muted" style="margin-bottom:10px">Tap “Load” to bring a day back.</div>
 
         <div class="avgBox" id="avgBox" style="display:none">
-          <div class="avgTitle" id="avgTitle">7‑day average: —</div>
-          <div class="avgMeta" id="avgMeta">Uses 7 weigh-ins from a 10‑day window ending on the day you’re viewing.</div>
+          <div class="avgTitle" id="avgTitle">7‑weigh‑in average: —</div>
+          <div class="avgMeta">Uses 7 weigh-ins inside a 10‑day window ending on the day you’re viewing.</div>
         </div>
 
         <div class="historyList" id="historyList"></div>
@@ -335,7 +343,7 @@
       </div>
 
       <div class="small muted" style="margin-bottom:8px">
-        Fields auto-fill with Today’s Goal; change them if needed.
+        “Today’s Goal” is auto-filled (edit it if needed). Stall/upgrade flags are conservative on purpose.
       </div>
 
       <div id="planRows"></div>
@@ -348,7 +356,7 @@
       <div class="modalHeader">
         <div>
           <h3>Settings</h3>
-          <div class="meta">Goals + rep targets. Saved automatically.</div>
+          <div class="meta">Goals + rep targets + progression. Saved automatically.</div>
         </div>
         <div class="btns" style="margin-top:0">
           <button id="closeSettingsBtn" type="button">Close</button>
@@ -374,7 +382,7 @@
         <div>
           <label>Weight increment (lb)</label>
           <input id="setIncrement" type="number" step="0.5" inputmode="decimal" />
-          <div class="small muted" style="margin-top:6px">Used for “Today’s Goal” bumps (default 5).</div>
+          <div class="small muted" style="margin-top:6px">Default +5. Stall response step 1 is to cut this to +2.5 for that lift.</div>
         </div>
       </div>
 
@@ -384,45 +392,132 @@
       <div id="repSettings"></div>
 
       <div class="hr"></div>
+      <h2 style="margin:0 0 10px;font-size:15px;">Progression rules</h2>
+      <div class="small muted">
+        Weighted lifts flag “stall” only if: <strong>5 exposures in 30 days</strong>, no load increase, and <strong>≥2 failures</strong>.<br>
+        Core upgrades flag only if: plank ≥ <strong>90s</strong> (3 hits) or leg raises ≥ <strong>18 reps</strong> (3 hits).<br>
+        Approving a swap permanently changes the template until the next approved change.
+      </div>
+
+      <div class="hr"></div>
       <button id="resetSettingsBtn" class="danger" type="button">Reset settings to defaults</button>
     </div>
   </div>
 
 <script>
 (() => {
-  const PROGRAM = {
-    A: [
-      { key:"bench", name:"Barbell Bench Press", sets:3, repsDefault:9, guide:"3 sets, steady reps", type:"weight" },
-      { key:"db_row", name:"One-arm Dumbbell Row", sets:3, repsDefault:10, guide:"Each side", type:"weight" },
-      { key:"db_press", name:"Dumbbell Shoulder Press", sets:3, repsDefault:9, guide:"Control down", type:"weight" },
-      { key:"curl", name:"Barbell or DB Bicep Curl", sets:3, repsDefault:11, guide:"No swinging", type:"weight" },
-      { key:"plank", name:"Plank", sets:3, repsDefault:1, guide:"Time to near-failure", type:"time" }
+  // ===== Variation pools (rotation-based, manual approve, persistent) =====
+  // Each "slot" in Workout A/B points to a pool. The pool has variants with unique keys.
+  const POOLS = {
+    bench: [
+      { key:"bench_bb", name:"Barbell Bench Press", guide:"Steady reps, full range", type:"weight" },
+      { key:"bench_db", name:"Dumbbell Bench Press", guide:"Control down; neutral wrists", type:"weight" },
+      { key:"bench_pause", name:"Pause Bench Press", guide:"1s pause on chest", type:"weight" },
+      { key:"bench_incline_db", name:"Incline Dumbbell Bench", guide:"Upper chest focus", type:"weight" }
     ],
-    B: [
-      { key:"squat", name:"Barbell Squat", sets:3, repsDefault:9, guide:"Brace hard", type:"weight" },
-      { key:"rdl", name:"Romanian Deadlift", sets:3, repsDefault:9, guide:"Hamstrings", type:"weight" },
-      { key:"pushup", name:"Pushups (slow + controlled)", sets:3, repsDefault:12, guide:"Full range", type:"weight" },
-      { key:"hammer", name:"Hammer Curls", sets:3, repsDefault:11, guide:"Neutral grip", type:"weight" },
-      { key:"leg_raise", name:"Leg Raises (lying)", sets:3, repsDefault:13, guide:"Controlled reps", type:"reps" }
+    row: [
+      { key:"row_1arm_db", name:"One‑arm Dumbbell Row", guide:"Each side; pull elbow to hip", type:"weight" },
+      { key:"row_bb", name:"Barbell Row", guide:"Hinge; don’t jerk", type:"weight" },
+      { key:"row_chest", name:"Chest‑Supported Row (DB)", guide:"Bench incline supported", type:"weight" }
+    ],
+    press: [
+      { key:"press_db", name:"Dumbbell Shoulder Press", guide:"Control down", type:"weight" },
+      { key:"press_seated_db", name:"Seated DB Press", guide:"Less leg drive", type:"weight" },
+      { key:"press_arnold", name:"Arnold Press", guide:"Rotate under control", type:"weight" }
+    ],
+    curl: [
+      { key:"curl_bb", name:"Barbell or DB Curl", guide:"No swinging", type:"weight" },
+      { key:"curl_incline_db", name:"Incline DB Curl", guide:"Big stretch", type:"weight" }
+    ],
+    squat: [
+      { key:"squat_bb", name:"Barbell Squat", guide:"Brace hard", type:"weight" },
+      { key:"squat_front", name:"Front Squat", guide:"Upright torso", type:"weight" },
+      { key:"squat_pause", name:"Pause Squat", guide:"1s pause at depth", type:"weight" }
+    ],
+    hinge: [
+      { key:"rdl_bb", name:"Romanian Deadlift", guide:"Hamstrings; flat back", type:"weight" },
+      { key:"hip_thrust", name:"Hip Thrust (barbell)", guide:"Full lockout", type:"weight" },
+      { key:"rdl_1leg", name:"Single‑Leg RDL (DB)", guide:"Balance + hamstring", type:"weight" }
+    ],
+    push: [
+      { key:"pushup", name:"Pushups (slow + controlled)", guide:"Full range", type:"weight" },
+      { key:"pushup_elev", name:"Feet‑Elevated Pushups", guide:"Harder angle", type:"weight" },
+      { key:"pushup_weighted", name:"Weighted Pushups", guide:"Backpack/plate", type:"weight" }
+    ],
+    hammer: [
+      { key:"hammer", name:"Hammer Curls", guide:"Neutral grip", type:"weight" },
+      { key:"hammer_cross", name:"Cross‑Body Hammer Curl", guide:"Across torso", type:"weight" },
+      { key:"curl_reverse", name:"Reverse Curl", guide:"Forearm + brachialis", type:"weight" }
+    ],
+    plank: [
+      { key:"plank_std", name:"Plank", guide:"Time to near‑failure", type:"time" },
+      { key:"plank_long", name:"Long‑Lever Plank", guide:"Harder lever", type:"time" },
+      { key:"plank_weighted", name:"Weighted Plank", guide:"Plate/backpack", type:"time" }
+    ],
+    legraise: [
+      { key:"legraise", name:"Leg Raises (lying)", guide:"Controlled reps", type:"reps" },
+      { key:"hang_knee", name:"Hanging Knee Raises", guide:"Control; no swing", type:"reps" },
+      { key:"hang_leg", name:"Hanging Leg Raises", guide:"Harder; no swing", type:"reps" }
     ]
   };
 
-  function buildDefaultReps(){
-    const reps = {};
-    ["A","B"].forEach(w => PROGRAM[w].forEach(ex => reps[ex.key] = ex.repsDefault));
-    return reps;
-  }
+  // Workout templates reference pool + reps defaults + sets
+  const TEMPLATE = {
+    A: [
+      { pool:"bench", sets:3, repsDefault:9 },
+      { pool:"row", sets:3, repsDefault:10, perSide:true },
+      { pool:"press", sets:3, repsDefault:9 },
+      { pool:"curl", sets:3, repsDefault:11 },
+      { pool:"plank", sets:3, repsDefault:1 } // time-based
+    ],
+    B: [
+      { pool:"squat", sets:3, repsDefault:9 },
+      { pool:"hinge", sets:3, repsDefault:9 },
+      { pool:"push", sets:3, repsDefault:12 },
+      { pool:"hammer", sets:3, repsDefault:11 },
+      { pool:"legraise", sets:3, repsDefault:13 }
+    ]
+  };
 
+  // ===== Settings + store =====
   const DEFAULT_SETTINGS = {
     goals: { steps: 10000, calories: 1800, protein: 130 },
     increment: 5,
-    reps: buildDefaultReps(),
-    timeIncrementSec: 10,
-    repsIncrement: 1
+    reps: {},                  // per variant key
+    activeVariantIndex: {       // per pool
+      bench:0,row:0,press:0,curl:0,
+      squat:0,hinge:0,push:0,hammer:0,
+      plank:0,legraise:0
+    },
+    // per pool microload flag (if stalled once)
+    microload: {
+      bench:false,row:false,press:false,curl:false,
+      squat:false,hinge:false,push:false,hammer:false,
+      plank:false,legraise:false
+    },
+    // thresholds for core upgrades
+    plankUpgradeSec: 90,
+    legRaiseUpgradeReps: 18,
   };
 
-  const STORE_KEY = "ben_lift_daily_tracker_v6_store";
-  const SETTINGS_KEY = "ben_lift_daily_tracker_v6_settings";
+  // Build default reps for every variant
+  function buildDefaultReps(){
+    const reps = {};
+    Object.keys(TEMPLATE).forEach(w=>{
+      TEMPLATE[w].forEach(slot=>{
+        const pool = slot.pool;
+        POOLS[pool].forEach(v=>{
+          // Use slot repsDefault for all variants in that pool by default
+          if(!(v.key in reps)) reps[v.key] = slot.repsDefault;
+        });
+      });
+    });
+    return reps;
+  }
+  DEFAULT_SETTINGS.reps = buildDefaultReps();
+
+  const STORE_KEY = "ben_lift_daily_tracker_v7_store";
+  const SETTINGS_KEY = "ben_lift_daily_tracker_v7_settings";
 
   const el = (id)=>document.getElementById(id);
 
@@ -435,13 +530,45 @@
   let store = loadJSON(STORE_KEY, { days: {} });
   let settings = loadJSON(SETTINGS_KEY, DEFAULT_SETTINGS);
 
+  // normalize settings
   if(!settings || typeof settings !== "object") settings = JSON.parse(JSON.stringify(DEFAULT_SETTINGS));
   if(!settings.goals) settings.goals = JSON.parse(JSON.stringify(DEFAULT_SETTINGS.goals));
   if(!settings.reps) settings.reps = buildDefaultReps();
+  if(!settings.activeVariantIndex) settings.activeVariantIndex = JSON.parse(JSON.stringify(DEFAULT_SETTINGS.activeVariantIndex));
+  if(!settings.microload) settings.microload = JSON.parse(JSON.stringify(DEFAULT_SETTINGS.microload));
   if(!settings.increment) settings.increment = DEFAULT_SETTINGS.increment;
-  if(!settings.timeIncrementSec) settings.timeIncrementSec = DEFAULT_SETTINGS.timeIncrementSec;
-  if(!settings.repsIncrement) settings.repsIncrement = DEFAULT_SETTINGS.repsIncrement;
 
+  // ===== Migration from older versions (bench -> bench_bb, etc.) =====
+  function migrateLegacyLogs(){
+    const renameMap = {
+      bench:"bench_bb",
+      db_row:"row_1arm_db",
+      db_press:"press_db",
+      curl:"curl_bb",
+      squat:"squat_bb",
+      rdl:"rdl_bb",
+      pushup:"pushup",
+      hammer:"hammer",
+      plank:"plank_std",
+      leg_raise:"legraise"
+    };
+    let changed = false;
+    for(const d of Object.keys(store.days||{})){
+      const wl = store.days[d]?.workoutLog;
+      if(!wl) continue;
+      for(const oldKey of Object.keys(renameMap)){
+        if(wl[oldKey] && !wl[renameMap[oldKey]]){
+          wl[renameMap[oldKey]] = wl[oldKey];
+          delete wl[oldKey];
+          changed = true;
+        }
+      }
+    }
+    if(changed) saveJSON(STORE_KEY, store);
+  }
+  migrateLegacyLogs();
+
+  // ===== Date helpers =====
   function isoLocalDate(d){
     const tzOffset = d.getTimezoneOffset();
     const local = new Date(d.getTime() - tzOffset*60000);
@@ -461,7 +588,7 @@
   }
   function sortedDatesDesc(){ return Object.keys(store.days).sort((a,b)=> b.localeCompare(a)); }
 
-  // UI refs
+  // ===== UI refs =====
   const dateLabel = el("dateLabel");
   const prevDayBtn = el("prevDayBtn");
   const nextDayBtn = el("nextDayBtn");
@@ -539,8 +666,8 @@
   }
 
   function workoutDescription(which){
-    if(which === "A") return "Workout A = chest/press + back row + shoulders + biceps + plank.";
-    if(which === "B") return "Workout B = squat + hinge (RDL) + pushups + biceps + leg raises.";
+    if(which === "A") return "Workout A = press + row + shoulders + biceps + plank.";
+    if(which === "B") return "Workout B = squat + hinge + pushups + biceps + leg raises.";
     return "Pick a workout to see what it is.";
   }
   function updateOpenPlanVisibility(){
@@ -560,34 +687,26 @@
     proteinChk.checked = p >= settings.goals.protein;
   }
 
-  // Toggle behavior (fixed):
-  // - On = fill goal into input
-  // - Off = clear input
+  // toggles
   stepsChk.addEventListener("change", ()=>{
     steps.value = stepsChk.checked ? String(settings.goals.steps) : "";
-    syncChecksFromInputs();
-    queueAutoSave();
+    syncChecksFromInputs(); queueAutoSave();
   });
   calsChk.addEventListener("change", ()=>{
     cals.value = calsChk.checked ? String(settings.goals.calories) : "";
-    syncChecksFromInputs();
-    queueAutoSave();
+    syncChecksFromInputs(); queueAutoSave();
   });
   proteinChk.addEventListener("change", ()=>{
     protein.value = proteinChk.checked ? String(settings.goals.protein) : "";
-    syncChecksFromInputs();
-    queueAutoSave();
+    syncChecksFromInputs(); queueAutoSave();
   });
   activityChk.addEventListener("change", queueAutoSave);
 
   [steps,cals,protein,bw].forEach(inp=>{
-    inp.addEventListener("input", ()=>{
-      syncChecksFromInputs();
-      queueAutoSave();
-    });
+    inp.addEventListener("input", ()=>{ syncChecksFromInputs(); queueAutoSave(); });
   });
 
-  // 1–10 scales
+  // scales
   function buildScale(rowEl, hintEl, setter){
     rowEl.innerHTML = "";
     for(let i=1;i<=10;i++){
@@ -618,24 +737,20 @@
   // modals
   function openModal(backdrop){ backdrop.classList.add("show"); backdrop.setAttribute("aria-hidden","false"); }
   function closeModal(backdrop){ backdrop.classList.remove("show"); backdrop.setAttribute("aria-hidden","true"); }
-
   closePlanBtn.addEventListener("click", ()=>closeModal(planBackdrop));
   planBackdrop.addEventListener("click", (e)=>{ if(e.target === planBackdrop) closeModal(planBackdrop); });
-
   closeSettingsBtn.addEventListener("click", ()=>closeModal(settingsBackdrop));
   settingsBackdrop.addEventListener("click", (e)=>{ if(e.target === settingsBackdrop) closeModal(settingsBackdrop); });
 
-  // plan helpers
-  function escapeAttr(v){ return (v===null||v===undefined) ? "" : String(v).replaceAll('"','&quot;'); }
-
-  function getLogValue(raw){
+  // ===== Log helpers =====
+  function getLog(raw){
     if(!raw) return { value:"", fail:false, easy:false };
     if("value" in raw) return { value: raw.value ?? "", fail: !!raw.fail, easy: !!raw.easy };
     if("weight" in raw) return { value: raw.weight ?? "", fail: !!raw.fail, easy: !!raw.easy };
     return { value:"", fail:false, easy:false };
   }
 
-  function setLogValue(exKey, exType, value, fail, easy){
+  function setLog(exKey, exType, value, fail, easy){
     if(!store.days[selectedDate]) store.days[selectedDate] = collectEditorData();
     store.days[selectedDate].workout = workoutSelect.value || "";
     store.days[selectedDate].workoutLog = store.days[selectedDate].workoutLog || {};
@@ -644,130 +759,215 @@
     renderHistory();
   }
 
-  function findLastForExercise(exKey){
-    const dates = sortedDatesDesc();
-    for(const dt of dates){
-      if(dt === selectedDate) continue;
-      const raw = store.days[dt]?.workoutLog?.[exKey];
+  function exposuresInWindow(exKey, daysBack){
+    const out = [];
+    for(let i=0;i<=daysBack;i++){
+      const d = addDaysISO(selectedDate, -i);
+      const raw = store.days[d]?.workoutLog?.[exKey];
       if(!raw) continue;
-      const log = getLogValue(raw);
-      if(log.value !== "" && log.value !== null && log.value !== undefined) return { date: dt, ...log };
+      const log = getLog(raw);
+      if(log.value === "" || log.value === null || log.value === undefined) continue;
+      out.push({ date:d, ...log });
     }
-    return null;
+    return out; // most recent first
   }
 
-  function findConsecutiveSuccesses(exKey, valStr){
-    if(!valStr) return 0;
-    let count = 0;
-    const dates = sortedDatesDesc();
-    for(const dt of dates){
-      if(dt === selectedDate) continue;
-      const raw = store.days[dt]?.workoutLog?.[exKey];
+  function hasHistoricalProgress(exKey){
+    const dates = sortedDatesDesc().slice().reverse(); // oldest -> newest
+    let min = null, max = null;
+    for(const d of dates){
+      const raw = store.days[d]?.workoutLog?.[exKey];
       if(!raw) continue;
-      const log = getLogValue(raw);
-      if(String(log.value) === String(valStr)){
-        if(log.fail || log.easy) break;
-        count += 1;
-      } else break;
+      const v = Number(getLog(raw).value);
+      if(!isFinite(v)) continue;
+      if(min === null || v < min) min = v;
+      if(max === null || v > max) max = v;
     }
-    return count;
+    return (min !== null && max !== null && max > min);
   }
 
+  // ===== Stall + upgrade detection =====
+  function detectStallWeighted(exKey){
+    // Conservative: 5 exposures in last 30 days, no load increase, >=2 failures, and has progressed before
+    const logs = exposuresInWindow(exKey, 30);
+    if(logs.length < 5) return { stalled:false };
+    const weights = logs.slice(0,5).map(x=>Number(x.value)).filter(x=>isFinite(x));
+    if(weights.length < 5) return { stalled:false };
+    const max = Math.max(...weights);
+    const min = Math.min(...weights);
+    const fails = logs.slice(0,5).filter(x=>x.fail).length;
+    if(max === min && fails >= 2 && hasHistoricalProgress(exKey)){
+      return { stalled:true, detail:`5 logs/30d, stuck at ${max} with ${fails} failures` };
+    }
+    return { stalled:false };
+  }
+
+  function detectUpgradeTime(exKey, thresholdSec){
+    const logs = exposuresInWindow(exKey, 60);
+    if(logs.length < 3) return { upgrade:false };
+    const top3 = logs.slice(0,3).map(x=>Number(x.value)).filter(x=>isFinite(x));
+    if(top3.length < 3) return { upgrade:false };
+    if(top3.every(v=>v >= thresholdSec)){
+      return { upgrade:true, detail:`3 hits ≥ ${thresholdSec}s` };
+    }
+    return { upgrade:false };
+  }
+
+  function detectUpgradeReps(exKey, thresholdReps){
+    const logs = exposuresInWindow(exKey, 60);
+    if(logs.length < 3) return { upgrade:false };
+    const top3 = logs.slice(0,3).map(x=>Number(x.value)).filter(x=>isFinite(x));
+    if(top3.length < 3) return { upgrade:false };
+    if(top3.every(v=>v >= thresholdReps)){
+      return { upgrade:true, detail:`3 hits ≥ ${thresholdReps} reps` };
+    }
+    return { upgrade:false };
+  }
+
+  // ===== Recommendation logic =====
   function roundTo(x, inc){
     const step = Number(inc)||5;
     return Math.round(x/step)*step;
   }
-
-  function recommendForExercise(ex){
-    const last = findLastForExercise(ex.key);
+  function lastValue(exKey){
+    const logs = exposuresInWindow(exKey, 180);
+    return logs.length ? logs[0] : null;
+  }
+  function recommend(exKey, type, poolName){
+    const last = lastValue(exKey);
     if(!last) return "";
 
-    if(ex.type === "time"){
-      const lastSec = Number(last.value);
-      if(!isFinite(lastSec)) return "";
-      if(last.fail) return String(lastSec);
-      const streak = findConsecutiveSuccesses(ex.key, String(lastSec));
-      if(streak >= 2) return String(lastSec + (Number(settings.timeIncrementSec)||10));
-      return String(lastSec);
+    // core types
+    if(type === "time"){
+      const v = Number(last.value);
+      if(!isFinite(v)) return "";
+      // If last 2 were same and >= threshold, keep same; otherwise small bump after 2 clean repeats
+      const streak = exposuresInWindow(exKey, 90).slice(0,3).filter(x=>String(x.value)===String(v)).length;
+      if(streak >= 2) return String(v + 10);
+      return String(v);
     }
-    if(ex.type === "reps"){
-      const lastReps = Number(last.value);
-      if(!isFinite(lastReps)) return "";
-      if(last.fail) return String(lastReps);
-      const streak = findConsecutiveSuccesses(ex.key, String(lastReps));
-      if(streak >= 2) return String(lastReps + (Number(settings.repsIncrement)||1));
-      return String(lastReps);
+    if(type === "reps"){
+      const v = Number(last.value);
+      if(!isFinite(v)) return "";
+      const streak = exposuresInWindow(exKey, 90).slice(0,3).filter(x=>String(x.value)===String(v)).length;
+      if(streak >= 2) return String(v + 1);
+      return String(v);
     }
 
+    // weighted
     const lastW = Number(last.value);
     if(!isFinite(lastW)) return "";
-    const inc = Number(settings.increment||5)||5;
-    if(last.easy) return String(roundTo(lastW+inc, inc));
+    // microload per pool if enabled
+    const inc = (settings.microload?.[poolName]) ? 2.5 : Number(settings.increment||5)||5;
+    if(last.easy) return String(roundTo(lastW + inc, inc));
     if(last.fail) return String(lastW);
-    const streak = findConsecutiveSuccesses(ex.key, String(lastW));
-    return (streak >= 2) ? String(roundTo(lastW+inc, inc)) : String(lastW);
+    // bump after 2 clean repeats
+    const streak = exposuresInWindow(exKey, 90).slice(0,3).filter(x=>String(x.value)===String(lastW) && !x.fail && !x.easy).length;
+    if(streak >= 2) return String(roundTo(lastW + inc, inc));
+    return String(lastW);
   }
 
-  function formatPrevious(ex){
-    const last = findLastForExercise(ex.key);
-    if(!last || last.value === "") return "—";
-    if(ex.type === "time") return `${last.value} sec`;
-    if(ex.type === "reps") return `${last.value} reps`;
-    return `${last.value} lb`;
+  function formatPrev(type, val){
+    if(val === null || val === undefined || val === "") return "—";
+    if(type === "time") return `${val} sec`;
+    if(type === "reps") return `${val} reps`;
+    return `${val} lb`;
   }
-
-  function formatGoal(ex, goalVal){
-    if(!goalVal) return "—";
-    if(ex.type === "time") return `${goalVal} sec`;
-    if(ex.type === "reps") return `${goalVal} reps`;
-    return `${goalVal} lb`;
-  }
-
-  function inputLabel(ex){
-    if(ex.type === "time") return "Time (sec)";
-    if(ex.type === "reps") return "Reps";
+  function labelForType(type){
+    if(type === "time") return "Time (sec)";
+    if(type === "reps") return "Reps";
     return "Weight (lb)";
   }
 
-  function openPlanModal(){
+  // ===== Swap / upgrade approval =====
+  function approveRotation(poolName){
+    const idx = settings.activeVariantIndex?.[poolName] ?? 0;
+    const next = Math.min(idx + 1, POOLS[poolName].length - 1);
+    settings.activeVariantIndex[poolName] = next;
+    // once you rotate, clear microload flag (fresh stimulus)
+    settings.microload[poolName] = false;
+    saveJSON(SETTINGS_KEY, settings);
+    // refresh plan if open
+    openPlanModal(true);
+  }
+
+  function approveMicroload(poolName){
+    settings.microload[poolName] = true;
+    saveJSON(SETTINGS_KEY, settings);
+    openPlanModal(true);
+  }
+
+  // ===== Plan Modal =====
+  function activeVariant(poolName){
+    const idx = settings.activeVariantIndex?.[poolName] ?? 0;
+    return POOLS[poolName][Math.max(0, Math.min(idx, POOLS[poolName].length-1))];
+  }
+
+  function openPlanModal(isRefresh=false){
     const which = workoutSelect.value;
     if(which !== "A" && which !== "B") return;
 
     planTitle.textContent = `Workout ${which} — Track Plan`;
-    planMeta.textContent = `${prettyDate(selectedDate)} • Increment: ${settings.increment} lb`;
-    planRows.innerHTML = "";
+    planMeta.textContent = `${prettyDate(selectedDate)} • Default increment: ${settings.increment} lb`;
+    if(!isRefresh) planRows.innerHTML = "";
+    else planRows.innerHTML = "";
 
-    const plan = PROGRAM[which];
-    plan.forEach(ex=>{
-      const prevText = formatPrevious(ex);
-      const goalVal = recommendForExercise(ex);
-      const goalText = formatGoal(ex, goalVal);
+    const plan = TEMPLATE[which];
 
-      const rawToday = store.days[selectedDate]?.workoutLog?.[ex.key];
-      const todayLog = getLogValue(rawToday);
-      const todayValExisting = todayLog.value ?? "";
-      const todayVal = (todayValExisting === "" || todayValExisting === null || todayValExisting === undefined)
-        ? (goalVal || "")
-        : todayValExisting;
+    plan.forEach((slot)=>{
+      const variant = activeVariant(slot.pool);
+      const exKey = variant.key;
+      const exType = variant.type;
 
-      const showFlags = (ex.type === "weight");
-      const reps = settings.reps?.[ex.key] ?? ex.repsDefault;
-      const repLine = (ex.type === "time") ? "near-failure (time)" : `${reps} reps`;
+      const last = lastValue(exKey);
+      const prevText = formatPrev(exType, last?.value ?? "");
+      const goalVal = recommend(exKey, exType, slot.pool);
+      const goalText = formatPrev(exType, goalVal);
+
+      const rawToday = store.days[selectedDate]?.workoutLog?.[exKey];
+      const todayLog = getLog(rawToday);
+      const todayExisting = todayLog.value ?? "";
+      const todayVal = (todayExisting === "" || todayExisting === null || todayExisting === undefined) ? (goalVal || "") : todayExisting;
+
+      const reps = settings.reps?.[exKey] ?? slot.repsDefault;
+      const repLine = (exType === "time") ? "near-failure (time)" : `${reps} reps${slot.perSide ? " each side" : ""}`;
+
+      // flags
+      let flag = null;
+      if(exType === "weight"){
+        const stall = detectStallWeighted(exKey);
+        if(stall.stalled){
+          flag = { kind:"stall", text:`Stall suspected`, detail: stall.detail };
+        }
+      } else if(exType === "time"){
+        const up = detectUpgradeTime(exKey, settings.plankUpgradeSec || 90);
+        if(up.upgrade && slot.pool === "plank" && (settings.activeVariantIndex.plank < POOLS.plank.length-1)){
+          flag = { kind:"upgrade", text:`Upgrade suggested`, detail: up.detail };
+        }
+      } else if(exType === "reps"){
+        const up = detectUpgradeReps(exKey, settings.legRaiseUpgradeReps || 18);
+        if(up.upgrade && slot.pool === "legraise" && (settings.activeVariantIndex.legraise < POOLS.legraise.length-1)){
+          flag = { kind:"upgrade", text:`Upgrade suggested`, detail: up.detail };
+        }
+      }
+
+      const showFlags = (exType === "weight");
 
       const card = document.createElement("div");
       card.className = "planCard";
+
       card.innerHTML = `
-        <div class="planName">${ex.name}</div>
-        <div class="planSub">${ex.sets} sets × ${repLine} • ${ex.guide}</div>
+        <div class="planName">${variant.name}</div>
+        <div class="planSub">${slot.sets} sets × ${repLine} • ${variant.guide}</div>
 
         <div class="planMetaLines">
           <div><strong>Previous:</strong> ${prevText}</div>
-          <div><strong>Today’s Goal:</strong> ${goalText}</div>
+          <div><strong>Today’s Goal:</strong> ${goalText}${settings.microload?.[slot.pool] && exType==="weight" ? " <span class='badge good'>microload</span>" : ""}</div>
         </div>
 
         <div class="planInputRow">
-          <label class="small muted">${inputLabel(ex)}</label>
-          <input class="valInput" type="number" step="${ex.type==='weight' ? '0.5' : '1'}" inputmode="decimal" value="${escapeAttr(todayVal)}" />
+          <label class="small muted">${labelForType(exType)}</label>
+          <input class="valInput" type="number" step="${exType==='weight' ? '0.5' : '1'}" inputmode="decimal" value="${String(todayVal).replaceAll('"','&quot;')}" />
         </div>
 
         ${showFlags ? `
@@ -776,6 +976,22 @@
             <label><input type="checkbox" class="easyChk"> Too easy</label>
           </div>
         ` : ``}
+
+        <div class="flagRow" style="${flag ? "" : "display:none"}">
+          <div class="left">
+            <span class="badge warn">${flag ? (flag.kind==="stall" ? "⚠︎ Stall" : "↑ Upgrade") : ""}</span>
+            <span class="small muted">${flag ? flag.detail : ""}</span>
+          </div>
+          <div class="right">
+            ${flag && flag.kind==="stall" ? `
+              <button type="button" class="microBtn">Use +2.5 microload</button>
+              <button type="button" class="swapBtn">Approve swap</button>
+            ` : ""}
+            ${flag && flag.kind==="upgrade" ? `
+              <button type="button" class="swapBtn">Approve upgrade</button>
+            ` : ""}
+          </div>
+        </div>
       `;
 
       const valInput = card.querySelector(".valInput");
@@ -788,26 +1004,36 @@
 
         failChk.addEventListener("change", ()=>{
           if(failChk.checked) easyChk.checked = false;
-          setLogValue(ex.key, ex.type, valInput.value, failChk.checked, easyChk.checked);
+          setLog(exKey, exType, valInput.value, failChk.checked, easyChk.checked);
           queueAutoSave();
         });
         easyChk.addEventListener("change", ()=>{
           if(easyChk.checked) failChk.checked = false;
-          setLogValue(ex.key, ex.type, valInput.value, failChk.checked, easyChk.checked);
+          setLog(exKey, exType, valInput.value, failChk.checked, easyChk.checked);
           queueAutoSave();
         });
         valInput.addEventListener("input", ()=>{
-          setLogValue(ex.key, ex.type, valInput.value, failChk.checked, easyChk.checked);
+          setLog(exKey, exType, valInput.value, failChk.checked, easyChk.checked);
           queueAutoSave();
         });
-
-        setLogValue(ex.key, ex.type, valInput.value, failChk.checked, easyChk.checked);
+        // persist autofill immediately
+        setLog(exKey, exType, valInput.value, failChk.checked, easyChk.checked);
       } else {
         valInput.addEventListener("input", ()=>{
-          setLogValue(ex.key, ex.type, valInput.value, false, false);
+          setLog(exKey, exType, valInput.value, false, false);
           queueAutoSave();
         });
-        setLogValue(ex.key, ex.type, valInput.value, false, false);
+        setLog(exKey, exType, valInput.value, false, false);
+      }
+
+      // wire approvals
+      const swapBtn = card.querySelector(".swapBtn");
+      const microBtn = card.querySelector(".microBtn");
+      if(microBtn){
+        microBtn.addEventListener("click", ()=> approveMicroload(slot.pool));
+      }
+      if(swapBtn){
+        swapBtn.addEventListener("click", ()=> approveRotation(slot.pool));
       }
 
       planRows.appendChild(card);
@@ -816,9 +1042,9 @@
     openModal(planBackdrop);
     queueAutoSave();
   }
-  openPlanBtn.addEventListener("click", openPlanModal);
+  openPlanBtn.addEventListener("click", ()=>openPlanModal(false));
 
-  // Settings
+  // ===== Settings modal =====
   function openSettings(){
     setStepsGoal.value = settings.goals.steps;
     setCalsGoal.value = settings.goals.calories;
@@ -826,22 +1052,34 @@
     setIncrement.value = settings.increment;
 
     repSettings.innerHTML = "";
-    const all = [...PROGRAM.A, ...PROGRAM.B];
-    all.forEach(ex=>{
+    // show reps for active variants only (keeps settings small)
+    const activeVariantKeys = new Set();
+    ["A","B"].forEach(w=>{
+      TEMPLATE[w].forEach(slot=>{
+        activeVariantKeys.add(activeVariant(slot.pool).key);
+      });
+    });
+    Array.from(activeVariantKeys).forEach(k=>{
+      // find readable name
+      let display = k;
+      for(const pool of Object.keys(POOLS)){
+        const found = POOLS[pool].find(v=>v.key===k);
+        if(found){ display = found.name; break; }
+      }
       const wrap = document.createElement("div");
       wrap.className = "checkRow";
       wrap.style.marginBottom = "10px";
       wrap.innerHTML = `
         <div>
-          <strong>${ex.name}</strong>
-          <div class="small">Default reps: ${ex.repsDefault}${ex.type==="time" ? " (time-based)" : ""}</div>
+          <strong>${display}</strong>
+          <div class="small">Reps target used for “sets × reps”</div>
         </div>
         <div class="right" style="gap:12px">
           <div style="width:120px">
             <label class="small muted">Reps</label>
             <input type="number" inputmode="numeric" min="1" step="1"
-              value="${escapeAttr(settings.reps?.[ex.key] ?? ex.repsDefault)}"
-              data-repkey="${ex.key}">
+              value="${String(settings.reps?.[k] ?? 10)}"
+              data-repkey="${k}">
           </div>
         </div>
       `;
@@ -866,7 +1104,7 @@
         const k = inp.getAttribute("data-repkey");
         settings.reps[k] = Number(inp.value || 1);
         saveJSON(SETTINGS_KEY, settings);
-        queueAutoSave();
+        openPlanModal(true);
       });
     });
 
@@ -882,7 +1120,7 @@
     queueAutoSave();
   });
 
-  // Day data
+  // ===== Day data =====
   function collectEditorData(){
     syncChecksFromInputs();
     return {
@@ -937,7 +1175,6 @@
 
     activityChk.checked = !!day.goals?.activityDone;
 
-    // Keep user's stored toggle state, but our toggle change handlers can override inputs.
     stepsChk.checked = !!day.goals?.stepsMet;
     calsChk.checked = !!day.goals?.caloriesMet;
     proteinChk.checked = !!day.goals?.proteinMet;
@@ -950,7 +1187,7 @@
     setScaleValue(energyRow, energyHint, energyVal);
   }
 
-  // Navigation + midnight rollover
+  // nav + midnight
   function setSelectedDate(iso){
     selectedDate = iso;
     dateLabel.textContent = prettyDate(selectedDate);
@@ -976,7 +1213,7 @@
     queueAutoSave();
   });
 
-  // Reset day (no confirmation)
+  // reset day no confirm
   resetBtn.addEventListener("click", ()=>{
     delete store.days[selectedDate];
     saveJSON(STORE_KEY, store);
@@ -985,7 +1222,7 @@
     renderWeightAverage();
   });
 
-  // Weight average (7 weigh-ins within a 10-day window ending on viewed day)
+  // weight average (7 weigh-ins within 10 days ending on viewed day)
   function renderWeightAverage(){
     const weights = [];
     for(let i=0;i<10;i++){
@@ -995,16 +1232,16 @@
       if(isFinite(n) && n > 0) weights.push({ date: d, w: n });
     }
     if(weights.length >= 7){
-      const use = weights.slice(0,7); // most recent 7 weigh-ins within window
+      const use = weights.slice(0,7);
       const avg = use.reduce((s,x)=>s+x.w,0)/use.length;
-      avgTitle.textContent = `7‑day average: ${avg.toFixed(1)} lb`;
+      avgTitle.textContent = `7‑weigh‑in average: ${avg.toFixed(1)} lb`;
       avgBox.style.display = "block";
     } else {
       avgBox.style.display = "none";
     }
   }
 
-  // History
+  // history
   function renderHistory(){
     const dates = sortedDatesDesc();
     historyList.innerHTML = "";
@@ -1049,11 +1286,10 @@
     });
   }
 
-  // Copy backup
   copyBtn.addEventListener("click", async ()=>{
-    const payload = { date: selectedDate, data: store.days[selectedDate] || collectEditorData() };
+    const payload = { date: selectedDate, data: store.days[selectedDate] || collectEditorData(), settings };
     const text = JSON.stringify(payload, null, 2);
-    try{ await navigator.clipboard.writeText(text); alert("Copied day as JSON to clipboard."); }
+    try{ await navigator.clipboard.writeText(text); alert("Copied backup JSON."); }
     catch(e){ prompt("Copy this JSON:", text); }
   });
 
