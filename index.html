@@ -35,9 +35,17 @@ button.icon{padding:10px 11px;font-weight:900} button:disabled{opacity:.45;curso
 .slider{width:46px;height:28px;border-radius:999px;background:#e5e7eb;border:1px solid var(--line);position:relative;transition:background .15s,border-color .15s}
 .slider::after{content:"";position:absolute;top:3px;left:3px;width:22px;height:22px;border-radius:50%;background:#fff;border:1px solid var(--line);transition:left .15s}
 .switchLabel input:checked + .slider{background:var(--okBg);border-color:#86efac} .switchLabel input:checked + .slider::after{left:21px;border-color:#86efac}
-.scaleRow{display:flex;gap:6px;flex-wrap:wrap}
-.scaleBtn{width:34px;height:34px;border-radius:12px;border:1px solid var(--line);background:#fff;font-weight:900;cursor:pointer}
-.scaleBtn.on{background:#111827;color:#fff;border-color:#111827}
+.scaleRow{display:flex;flex-direction:column;gap:8px}
+.rangeWrap{display:flex;align-items:center;gap:10px}
+.rangeNums{display:flex;justify-content:space-between;font-size:11px;color:var(--muted);padding:0 2px}
+.rangeClear{padding:8px 10px;border-radius:10px;font-weight:800}
+input[type="range"].scoreRange{-webkit-appearance:none;appearance:none;width:100%;height:6px;border-radius:999px;background:#e5e7eb;outline:none}
+input[type="range"].scoreRange::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:22px;height:22px;border-radius:50%;background:#111827;border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.18)}
+input[type="range"].scoreRange::-moz-range-thumb{width:22px;height:22px;border-radius:50%;background:#111827;border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.18)}
+.scoreUnset input[type="range"].scoreRange{opacity:.35}
+.footerSync{margin-top:14px;text-align:center;font-size:11px;color:var(--muted)}
+.footerSync.ok{color:var(--ok)}
+.footerSync.bad{color:var(--danger)}
 .historyList{display:flex;flex-direction:column;gap:10px;max-height:520px;overflow:auto;padding-right:6px}
 .histItem{border:1px solid var(--line);border-radius:14px;padding:12px;background:#fff;display:flex;gap:10px;justify-content:space-between;align-items:flex-start}
 .histItem .left{min-width:0} .histItem .date{font-weight:950;font-size:13px} .histItem .meta{margin-top:4px;color:var(--muted);font-size:12px}
@@ -142,13 +150,25 @@ button.icon{padding:10px 11px;font-weight:900} button:disabled{opacity:.45;curso
       <h2>Check-in</h2>
       <div class="twoCol">
         <div>
-          <label>Stress (1–10)</label>
-          <div class="scaleRow" id="stressRow"></div>
+          <label>Stress (1–7)</label>
+          <div class="scaleRow scoreUnset" id="stressRow">
+            <div class="rangeWrap">
+              <input id="stressRange" class="scoreRange" type="range" min="1" max="7" step="1" value="4" />
+              <button id="stressClear" class="rangeClear" type="button">Clear</button>
+            </div>
+            <div class="rangeNums"><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span><span>6</span><span>7</span></div>
+          </div>
           <div class="small muted" id="stressHint">Not set</div>
         </div>
         <div>
-          <label>Energy (1–10)</label>
-          <div class="scaleRow" id="energyRow"></div>
+          <label>Energy (1–7)</label>
+          <div class="scaleRow scoreUnset" id="energyRow">
+            <div class="rangeWrap">
+              <input id="energyRange" class="scoreRange" type="range" min="1" max="7" step="1" value="4" />
+              <button id="energyClear" class="rangeClear" type="button">Clear</button>
+            </div>
+            <div class="rangeNums"><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span><span>6</span><span>7</span></div>
+          </div>
           <div class="small muted" id="energyHint">Not set</div>
         </div>
       </div>
@@ -158,7 +178,7 @@ button.icon{padding:10px 11px;font-weight:900} button:disabled{opacity:.45;curso
         <button id="copyBtn" type="button">Copy backup</button>
         <button id="resetBtn" class="danger" type="button">Reset day</button>
       </div>
-      <div class="small syncStatus" id="syncStatus" style="margin-top:10px">Cloud sync not started yet.</div>
+      
     </div>
 
     <div class="card">
@@ -175,6 +195,7 @@ button.icon{padding:10px 11px;font-weight:900} button:disabled{opacity:.45;curso
       <div class="historyList" id="historyList"></div>
     </div>
   </div>
+  <div id="syncStatus" class="footerSync">Cloud sync not started yet.</div>
 </div>
 
 <div class="modalBackdrop" id="planBackdrop" aria-hidden="true">
@@ -184,7 +205,7 @@ button.icon{padding:10px 11px;font-weight:900} button:disabled{opacity:.45;curso
         <h3 id="planTitle">Workout Plan</h3>
         <div class="meta" id="planMeta">—</div>
       </div>
-      <div class="btns" style="margin-top:0"><button id="closePlanBtn" type="button">Close</button></div>
+      <div class="btns" style="margin-top:0"><button id="musicBtn" type="button">🎧 Music</button><button id="closePlanBtn" type="button">Close</button></div>
     </div>
     <div class="small muted" style="margin-bottom:8px">“Today’s goal” auto-coaches the next target. No exercise swapping anymore.</div>
     <div id="planRows"></div>
@@ -205,8 +226,12 @@ button.icon{padding:10px 11px;font-weight:900} button:disabled{opacity:.45;curso
       <div><label>Calorie limit</label><input id="setCalsGoal" type="number" inputmode="numeric" /></div>
     </div>
     <div class="twoCol" style="margin-top:12px">
-      <div><label>Protein goal (g)</label><input id="setProteinGoal" type="number" inputmode="numeric" /></div>
+      <div><label>Protein goal (g)</label><input id="setProteinGoal" type="number" inputmode="numeric" /><div class="small muted" id="proteinMultiplierHint" style="margin-top:6px">Per lb: —</div></div>
+      <div><label>Protein per lb bodyweight</label><input id="setProteinPerLb" type="number" step="0.01" inputmode="decimal" /><div class="small muted" style="margin-top:6px">Uses your bodyweight log for the day you are viewing.</div></div>
+    </div>
+    <div class="twoCol" style="margin-top:12px">
       <div><label>Weight increment (lb)</label><input id="setIncrement" type="number" step="0.5" inputmode="decimal" /></div>
+      <div></div>
     </div>
     <div class="hr"></div>
     <div class="small muted">
@@ -272,16 +297,17 @@ button.icon{padding:10px 11px;font-weight:900} button:disabled{opacity:.45;curso
   const stepsGoalText=el("stepsGoalText"), calsGoalText=el("calsGoalText"), proteinGoalText=el("proteinGoalText");
   const steps=el("steps"), cals=el("cals"), protein=el("protein"), stepsChk=el("stepsChk"), calsChk=el("calsChk"), proteinChk=el("proteinChk"), activityChk=el("activityChk");
   const stressRow=el("stressRow"), energyRow=el("energyRow"), stressHint=el("stressHint"), energyHint=el("energyHint");
+  const stressRange=el("stressRange"), energyRange=el("energyRange"), stressClear=el("stressClear"), energyClear=el("energyClear");
   const copyBtn=el("copyBtn"), resetBtn=el("resetBtn"), historyList=el("historyList"), avgBox=el("avgBox"), avgTitle=el("avgTitle"), dashboardGrid=el("dashboardGrid"), syncStatus=el("syncStatus");
-  const planBackdrop=el("planBackdrop"), planTitle=el("planTitle"), planMeta=el("planMeta"), planRows=el("planRows"), closePlanBtn=el("closePlanBtn");
-  const settingsBackdrop=el("settingsBackdrop"), closeSettingsBtn=el("closeSettingsBtn"), setStepsGoal=el("setStepsGoal"), setCalsGoal=el("setCalsGoal"), setProteinGoal=el("setProteinGoal"), setIncrement=el("setIncrement"), resetSettingsBtn=el("resetSettingsBtn");
+  const planBackdrop=el("planBackdrop"), planTitle=el("planTitle"), planMeta=el("planMeta"), planRows=el("planRows"), closePlanBtn=el("closePlanBtn"), musicBtn=el("musicBtn");
+  const settingsBackdrop=el("settingsBackdrop"), closeSettingsBtn=el("closeSettingsBtn"), setStepsGoal=el("setStepsGoal"), setCalsGoal=el("setCalsGoal"), setProteinGoal=el("setProteinGoal"), setProteinPerLb=el("setProteinPerLb"), proteinMultiplierHint=el("proteinMultiplierHint"), setIncrement=el("setIncrement"), resetSettingsBtn=el("resetSettingsBtn");
 
   let selectedDate = todayISO();
   let stressVal = null, energyVal = null;
   let localSaveTimer = null, cloudSaveTimer = null;
   let timerIntervals = {};
 
-  function setSyncStatus(text){ syncStatus.textContent = text; }
+  function setSyncStatus(text){ syncStatus.textContent = text; syncStatus.className = "footerSync"; const t = String(text || "").toLowerCase(); if(t.includes("fail")) syncStatus.classList.add("bad"); else if(t.includes("sync") || t.includes("load")) syncStatus.classList.add("ok"); }
   function refreshGoalTexts(){
     stepsGoalText.textContent = `Goal: ${settings.goals.steps.toLocaleString()}`;
     calsGoalText.textContent = `Limit: ${settings.goals.calories.toLocaleString()}`;
@@ -330,7 +356,6 @@ button.icon{padding:10px 11px;font-weight:900} button:disabled{opacity:.45;curso
   async function cloudPost(body) {
     const res = await fetch(GAS_URL, {
       method:"POST",
-      headers: { "Content-Type":"application/json" },
       body: JSON.stringify(body)
     });
     return await res.json();
@@ -388,17 +413,17 @@ button.icon{padding:10px 11px;font-weight:900} button:disabled{opacity:.45;curso
         source: "github_app",
         exercises: extractExercisesForDate(selectedDate)
       };
-      setSyncStatus("Syncing to Google Sheets…");
+      setSyncStatus("● syncing");
       const res = await cloudPost(payload);
       if(res && res.ok) {
         cloudState.lastSyncAt = new Date().toISOString();
         saveJSON(CLOUD_KEY, cloudState);
-        setSyncStatus(`Synced: ${new Date().toLocaleTimeString([],{hour:'numeric',minute:'2-digit'})}`);
+        setSyncStatus("● synced");
       } else {
-        setSyncStatus("Cloud sync failed. Local save still fine.");
+        setSyncStatus("● sync failed");
       }
     } catch (e) {
-      setSyncStatus("Cloud sync failed. Local save still fine.");
+      setSyncStatus("● sync failed");
     }
   }
 
@@ -476,7 +501,7 @@ button.icon{padding:10px 11px;font-weight:900} button:disabled{opacity:.45;curso
   }
 
   async function initializeCloudSync() {
-    setSyncStatus("Loading cloud data…");
+    setSyncStatus("● syncing");
     try {
       const init = await cloudGet("init");
       if(init && init.ok) {
@@ -500,12 +525,12 @@ button.icon{padding:10px 11px;font-weight:900} button:disabled{opacity:.45;curso
         renderHistory();
         renderWeightAverage();
         renderDashboard();
-        setSyncStatus("Cloud data loaded.");
+        setSyncStatus("● synced");
       } else {
-        setSyncStatus("Using local-only data.");
+        setSyncStatus("● sync failed");
       }
     } catch(e) {
-      setSyncStatus("Using local-only data.");
+      setSyncStatus("● sync failed");
     }
   }
 
@@ -515,25 +540,39 @@ button.icon{padding:10px 11px;font-weight:900} button:disabled{opacity:.45;curso
   activityChk.addEventListener("change", queueAutoSave);
   [steps,cals,protein,bw].forEach(inp=>inp.addEventListener("input", ()=>{ syncChecksFromInputs(); queueAutoSave(); }));
 
-  function buildScale(rowEl, hintEl, setter){
-    rowEl.innerHTML = "";
-    for(let i=1;i<=10;i++) {
-      const b = document.createElement("button");
-      b.type = "button"; b.className = "scaleBtn"; b.textContent = String(i); b.dataset.val = String(i);
-      b.addEventListener("click", ()=>{ rowEl.querySelectorAll(".scaleBtn").forEach(x=>x.classList.remove("on")); b.classList.add("on"); hintEl.textContent=`Selected: ${i}`; setter(i); queueAutoSave(); });
-      rowEl.appendChild(b);
+  function bindScoreControl(rangeEl, rowEl, hintEl, clearBtn, setter){
+    function apply(val){
+      if(val === null || val === undefined || val === ""){
+        rowEl.classList.add("scoreUnset");
+        hintEl.textContent = "Not set";
+        setter(null);
+        return;
+      }
+      rowEl.classList.remove("scoreUnset");
+      hintEl.textContent = `Selected: ${val}`;
+      setter(Number(val));
+    }
+    rangeEl.addEventListener("input", ()=>{ apply(rangeEl.value); queueAutoSave(); });
+    clearBtn.addEventListener("click", ()=>{ apply(null); queueAutoSave(); });
+  }
+  function setScoreValue(rowEl, hintEl, val, rangeEl){
+    if(val === null || val === undefined || val === ""){
+      rowEl.classList.add("scoreUnset");
+      hintEl.textContent = "Not set";
+      if(rangeEl) rangeEl.value = 4;
+    } else {
+      rowEl.classList.remove("scoreUnset");
+      hintEl.textContent = `Selected: ${val}`;
+      if(rangeEl) rangeEl.value = val;
     }
   }
-  function setScaleValue(rowEl, hintEl, val){
-    rowEl.querySelectorAll(".scaleBtn").forEach(x=>x.classList.toggle("on", Number(x.dataset.val)===Number(val)));
-    hintEl.textContent = val ? `Selected: ${val}` : "Not set";
-  }
-  buildScale(stressRow, stressHint, (v)=>{ stressVal=v; });
-  buildScale(energyRow, energyHint, (v)=>{ energyVal=v; });
+  bindScoreControl(stressRange, stressRow, stressHint, stressClear, (v)=>{ stressVal=v; });
+  bindScoreControl(energyRange, energyRow, energyHint, energyClear, (v)=>{ energyVal=v; });
 
   function openModal(backdrop){ backdrop.classList.add("show"); backdrop.setAttribute("aria-hidden","false"); }
   function closeModal(backdrop){ backdrop.classList.remove("show"); backdrop.setAttribute("aria-hidden","true"); }
   closePlanBtn.addEventListener("click", ()=>{ Object.keys(timerIntervals).forEach(stopTimer); closeModal(planBackdrop); });
+  musicBtn.addEventListener("click", ()=>{ window.open("https://open.spotify.com/playlist/37i9dQZF1DX70RN3TfWWJh", "_blank"); });
   planBackdrop.addEventListener("click", (e)=>{ if(e.target===planBackdrop) { Object.keys(timerIntervals).forEach(stopTimer); closeModal(planBackdrop); } });
   closeSettingsBtn.addEventListener("click", ()=>closeModal(settingsBackdrop));
   settingsBackdrop.addEventListener("click", (e)=>{ if(e.target===settingsBackdrop) closeModal(settingsBackdrop); });
@@ -618,10 +657,38 @@ button.icon{padding:10px 11px;font-weight:900} button:disabled{opacity:.45;curso
 
   function formatVal(ex, val){ if(val === "" || val === null || val === undefined) return "—"; return ex.timeBased ? `${val} sec` : `${val} lb`; }
 
+  let audioCtx = null;
+  function ensureAudio(){
+    if(!audioCtx){
+      const Ctx = window.AudioContext || window.webkitAudioContext;
+      if(Ctx) audioCtx = new Ctx();
+    }
+    if(audioCtx && audioCtx.state === "suspended") audioCtx.resume();
+  }
+  function playTimerDoneSound(){
+    try{
+      ensureAudio();
+      if(!audioCtx) return;
+      const now = audioCtx.currentTime;
+      [0,0.22].forEach((offset)=>{
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = "sine";
+        osc.frequency.value = 880;
+        gain.gain.setValueAtTime(0.0001, now + offset);
+        gain.gain.exponentialRampToValueAtTime(0.18, now + offset + 0.01);
+        gain.gain.exponentialRampToValueAtTime(0.0001, now + offset + 0.18);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start(now + offset);
+        osc.stop(now + offset + 0.19);
+      });
+    } catch(e){}
+  }
   function timerState(key, goalSec){
-    if(!timers[key]) timers[key] = { remaining:Number(goalSec||0), running:false, lastGoal:Number(goalSec||0) };
+    if(!timers[key]) timers[key] = { remaining:Number(goalSec||0), running:false, lastGoal:Number(goalSec||0), halfDone:false };
     if(Number(goalSec||0)!==Number(timers[key].lastGoal||0) && !timers[key].running) {
-      timers[key].remaining = Number(goalSec||0); timers[key].lastGoal = Number(goalSec||0);
+      timers[key].remaining = Number(goalSec||0); timers[key].lastGoal = Number(goalSec||0); timers[key].halfDone = false;
     }
     return timers[key];
   }
@@ -724,18 +791,26 @@ button.icon{padding:10px 11px;font-weight:900} button:disabled{opacity:.45;curso
           const st = timers[key];
           if(!st) return;
           st.remaining = Math.max(0, Number(st.remaining||0) - 1);
+          const halfPoint = Math.ceil(Number(st.lastGoal||0) / 2);
+          if(!st.halfDone && Number(st.lastGoal||0) > 1 && st.remaining === halfPoint) {
+            st.halfDone = true;
+            if(navigator.vibrate) navigator.vibrate(120);
+          }
           display.textContent = fmtTime(st.remaining);
           saveJSON(TIMER_KEY, timers);
           if(st.remaining <= 0) {
+            if(navigator.vibrate) navigator.vibrate([180,80,180]);
+            playTimerDoneSound();
             stopTimer(key);
             display.textContent = "00:00";
           }
         }
         startBtn.addEventListener("click", ()=>{
+          ensureAudio();
           const goalSec = Number(valInput.value || goal || ex.low || ex.high || 0);
           const st = timerState(key, goalSec);
           if(st.running) return;
-          if(Number(st.remaining||0) <= 0) { st.remaining = goalSec; st.lastGoal = goalSec; }
+          if(Number(st.remaining||0) <= 0) { st.remaining = goalSec; st.lastGoal = goalSec; st.halfDone = false; }
           st.running = true;
           display.textContent = fmtTime(st.remaining);
           saveJSON(TIMER_KEY, timers);
@@ -745,7 +820,7 @@ button.icon{padding:10px 11px;font-weight:900} button:disabled{opacity:.45;curso
         resetBtn.addEventListener("click", ()=>{
           const goalSec = Number(valInput.value || goal || ex.low || ex.high || 0);
           stopTimer(key);
-          timers[key] = { remaining:goalSec, running:false, lastGoal:goalSec };
+          timers[key] = { remaining:goalSec, running:false, lastGoal:goalSec, halfDone:false };
           display.textContent = fmtTime(goalSec);
           saveJSON(TIMER_KEY, timers);
         });
@@ -765,18 +840,37 @@ button.icon{padding:10px 11px;font-weight:900} button:disabled{opacity:.45;curso
     setCalsGoal.value = settings.goals.calories;
     setProteinGoal.value = settings.goals.protein;
     setIncrement.value = settings.increment;
-    const syncSettings = ()=>{
+    const bodyWeightNow = Number(bw.value || store.days[selectedDate]?.bodyWeight || 0);
+    proteinMultiplierHint.textContent = bodyWeightNow > 0 ? `Per lb: ${(settings.goals.protein / bodyWeightNow).toFixed(2)} g/lb` : "Per lb: —";
+    setProteinPerLb.value = bodyWeightNow > 0 ? (settings.goals.protein / bodyWeightNow).toFixed(2) : "";
+    const syncSettings = (source)=>{
       settings.goals.steps = Number(setStepsGoal.value || DEFAULT_SETTINGS.goals.steps);
       settings.goals.calories = Number(setCalsGoal.value || DEFAULT_SETTINGS.goals.calories);
-      settings.goals.protein = Number(setProteinGoal.value || DEFAULT_SETTINGS.goals.protein);
+      const liveWeight = Number(bw.value || store.days[selectedDate]?.bodyWeight || 0);
+      if(source === "perlb"){
+        const mult = Number(setProteinPerLb.value || 0);
+        if(liveWeight > 0 && mult > 0){
+          settings.goals.protein = Math.round(mult * liveWeight);
+          setProteinGoal.value = settings.goals.protein;
+        }
+      } else {
+        settings.goals.protein = Number(setProteinGoal.value || DEFAULT_SETTINGS.goals.protein);
+      }
       settings.increment = Number(setIncrement.value || DEFAULT_SETTINGS.increment);
+      const showWeight = Number(bw.value || store.days[selectedDate]?.bodyWeight || 0);
+      proteinMultiplierHint.textContent = showWeight > 0 ? `Per lb: ${(settings.goals.protein / showWeight).toFixed(2)} g/lb` : "Per lb: —";
+      if(showWeight > 0) setProteinPerLb.value = (settings.goals.protein / showWeight).toFixed(2);
       saveJSON(SETTINGS_KEY, settings);
       refreshGoalTexts();
       syncChecksFromInputs();
       syncSettingsToCloud();
       queueAutoSave();
     };
-    [setStepsGoal,setCalsGoal,setProteinGoal,setIncrement].forEach(inp => inp.oninput = syncSettings);
+    setStepsGoal.oninput = ()=>syncSettings();
+    setCalsGoal.oninput = ()=>syncSettings();
+    setProteinGoal.oninput = ()=>syncSettings("grams");
+    setProteinPerLb.oninput = ()=>syncSettings("perlb");
+    setIncrement.oninput = ()=>syncSettings();
     openModal(settingsBackdrop);
   }
   settingsBtn.addEventListener("click", openSettings);
@@ -815,7 +909,7 @@ button.icon{padding:10px 11px;font-weight:900} button:disabled{opacity:.45;curso
     bw.value = ""; workoutSelect.value = ""; workoutDesc.textContent = workoutDescription(""); updateOpenPlanVisibility();
     steps.value = ""; cals.value = ""; protein.value = ""; stepsChk.checked = false; calsChk.checked = false; proteinChk.checked = false; activityChk.checked = false;
     stressVal = null; energyVal = null;
-    setScaleValue(stressRow, stressHint, null); setScaleValue(energyRow, energyHint, null);
+    setScoreValue(stressRow, stressHint, null, stressRange); setScoreValue(energyRow, energyHint, null, energyRange);
 
     if(!day) return;
     bw.value = day.bodyWeight ?? "";
@@ -826,7 +920,7 @@ button.icon{padding:10px 11px;font-weight:900} button:disabled{opacity:.45;curso
     stepsChk.checked = !!day.goals?.stepsMet; calsChk.checked = !!day.goals?.caloriesMet; proteinChk.checked = !!day.goals?.proteinMet;
     syncChecksFromInputs();
     stressVal = day.checkin?.stress ?? null; energyVal = day.checkin?.energy ?? null;
-    setScaleValue(stressRow, stressHint, stressVal); setScaleValue(energyRow, energyHint, energyVal);
+    setScoreValue(stressRow, stressHint, stressVal, stressRange); setScoreValue(energyRow, energyHint, energyVal, energyRange);
   }
 
   function setSelectedDate(iso){
