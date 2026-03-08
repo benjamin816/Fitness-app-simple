@@ -692,13 +692,35 @@ const DEFAULT_SETTINGS = {
         const seen = new Set();
         const out = [];
         ["A","B","C"].forEach(day => {
-          (WORKOUTS[day] || []).forEach(ex => {
+          workoutsForDay(day).forEach(ex => {
+            if(ex.timeBased) return;
             if(seen.has(ex.name)) return;
             seen.add(ex.name);
             out.push(ex);
           });
         });
         return out;
+      }
+
+      function workoutsForDay(day){
+        const list = Array.isArray(WORKOUTS?.[day]) ? [...WORKOUTS[day]] : [];
+        if(day !== "C") return list;
+        if(list.some(ex => ex?.name === "Dumbbell Bicep Curl")) return list;
+        const hammer = list.find(ex => ex?.name === "Hammer Curl");
+        if(!hammer) return list;
+        const idx = Math.max(0, list.indexOf(hammer));
+        list.splice(idx, 0, {
+          ...hammer,
+          name: "Dumbbell Bicep Curl",
+          meta: "3 sets • 8–12 reps",
+          desc: "Classic supinated dumbbell curl for biceps.",
+          sets: 3,
+          low: 8,
+          high: 12,
+          unit: "reps",
+          timeBased: false
+        });
+        return list;
       }
 
       function updateFreshStartInputLock(){
@@ -726,13 +748,21 @@ const DEFAULT_SETTINGS = {
               : [{value:"",label:"None"},{value:"BASELINE",label:"Baseline Test"}])
           : [{value:"",label:"None"},{value:"A",label:"Workout A"},{value:"B",label:"Workout B"},{value:"C",label:"Workout C"}];
         workoutSelect.innerHTML = opts.map(o => `<option value="${o.value}">${o.label}</option>`).join("");
-        if(opts.some(o => o.value === current)) workoutSelect.value = current;
-        else workoutSelect.value = "";
+        if(resetModeActive() && !needsBodyweight){
+          workoutSelect.value = "BASELINE";
+        } else if(opts.some(o => o.value === current)){
+          workoutSelect.value = current;
+        } else {
+          workoutSelect.value = "";
+        }
         workoutSelect.disabled = !!needsBodyweight;
         baselineHint.style.display = resetModeActive() ? "block" : "none";
         workoutDesc.textContent = needsBodyweight
           ? "Fresh start requires bodyweight first. Enter bodyweight to unlock baseline testing."
           : workoutDescription(workoutSelect.value);
+        const navLocked = resetModeActive();
+        prevDayBtn.disabled = navLocked || selectedDate === todayISO();
+        nextDayBtn.disabled = true;
         updateFreshStartInputLock();
         updateOpenPlanVisibility();
       }
@@ -850,6 +880,8 @@ const DEFAULT_SETTINGS = {
       }
 
       function setSelectedDate(iso){
+        if(resetModeActive()) iso = todayISO();
+        if(iso > todayISO()) iso = todayISO();
         selectedDate = iso;
         dateLabel.textContent = prettyDate(selectedDate);
         loadDayIntoEditor(selectedDate);
@@ -1038,7 +1070,7 @@ const DEFAULT_SETTINGS = {
         const workoutDay = day?.workout || "";
         if(!["A","B","C","BASELINE"].includes(workoutDay)) return [];
         const log = day?.workoutLog || {};
-        const exList = workoutDay === "BASELINE" ? baselineExercises() : (WORKOUTS[workoutDay] || []);
+        const exList = workoutDay === "BASELINE" ? baselineExercises() : workoutsForDay(workoutDay);
         const rows = [];
 
         exList.forEach((ex, idx) => {
@@ -1266,7 +1298,7 @@ const DEFAULT_SETTINGS = {
 
       function firstProgressExercise(){
         for(const dayName of ["A","B","C"]){
-          for(const ex of WORKOUTS[dayName]){
+          for(const ex of workoutsForDay(dayName)){
             if(ex.timeBased) continue;
             const key = exerciseKey(dayName, ex);
             const logs = exposuresInWindow(key, 365).filter(x => Number.isFinite(Number(x.mainWeight)));
@@ -1417,14 +1449,14 @@ const DEFAULT_SETTINGS = {
           renderBaselineModal();
           return;
         }
-        if(!WORKOUTS[dayName]) return;
+        if(!workoutsForDay(dayName).length) return;
 
         Object.keys(timerIntervals).forEach(stopTimer);
         planTitle.textContent = `Workout ${dayName} — Track Plan`;
         planMeta.textContent = prettyDate(selectedDate);
         planRows.innerHTML = "";
 
-        WORKOUTS[dayName].forEach(ex => {
+        workoutsForDay(dayName).forEach(ex => {
           const key = exerciseKey(dayName, ex);
           const rawToday = store.days[selectedDate]?.workoutLog?.[key];
           const todayLog = getLog(rawToday);
@@ -1686,9 +1718,18 @@ const DEFAULT_SETTINGS = {
         openModal(settingsBackdrop);
       }
 
-      prevDayBtn.addEventListener("click", () => setSelectedDate(addDaysISO(selectedDate, -1)));
-      nextDayBtn.addEventListener("click", () => setSelectedDate(addDaysISO(selectedDate, +1)));
-      todayBtn.addEventListener("click", () => setSelectedDate(todayISO()));
+      prevDayBtn.addEventListener("click", () => {
+        if(resetModeActive()) return;
+        setSelectedDate(addDaysISO(selectedDate, -1));
+      });
+      nextDayBtn.addEventListener("click", () => {
+        return;
+      });
+      todayBtn.addEventListener("click", () => {
+        const t = todayISO();
+        if(selectedDate === t) return;
+        setSelectedDate(t);
+      });
       settingsBtn.addEventListener("click", openSettings);
 
       let lastSeenToday = todayISO();
