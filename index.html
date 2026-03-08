@@ -647,9 +647,7 @@ const DEFAULT_SETTINGS = {
       }
 
       function sortedDatesDesc(){
-        const today = todayISO();
         return Object.keys(store.days)
-          .filter(d => d <= today)
           .filter(d => isMeaningfulDay(store.days[d]))
           .sort((a,b)=>b.localeCompare(a));
       }
@@ -701,22 +699,10 @@ const DEFAULT_SETTINGS = {
             out.push(ex);
           });
         });
-        // Hard guarantee: include dumbbell bicep curl in baseline (uses same visual source as Hammer Curl).
+        // Hard guarantee: include dumbbell bicep curl in baseline.
         if(!seen.has("Dumbbell Bicep Curl")){
-          const hammer = workoutsForDay("C").find(ex => ex?.name === "Hammer Curl");
-          if(hammer){
-            out.push({
-              ...hammer,
-              name: "Dumbbell Bicep Curl",
-              meta: "3 sets • 8–12 reps",
-              desc: "Classic supinated dumbbell curl for biceps.",
-              sets: 3,
-              low: 8,
-              high: 12,
-              unit: "reps",
-              timeBased: false
-            });
-          }
+          const curl = workoutsForDay("C").find(ex => ex?.name === "Dumbbell Bicep Curl");
+          if(curl) out.push({ ...curl });
         }
         return out;
       }
@@ -725,19 +711,25 @@ const DEFAULT_SETTINGS = {
         const list = Array.isArray(WORKOUTS?.[day]) ? [...WORKOUTS[day]] : [];
         if(day !== "C") return list;
         if(list.some(ex => ex?.name === "Dumbbell Bicep Curl")) return list;
-        const hammer = list.find(ex => ex?.name === "Hammer Curl");
-        if(!hammer) return list;
-        const idx = Math.max(0, list.indexOf(hammer));
+        const source =
+          (WORKOUTS?.B || []).find(ex => ex?.name === "Dumbbell Overhead Press") ||
+          (WORKOUTS?.A || []).find(ex => ex?.name === "Dumbbell Bench Press") ||
+          list.find(ex => !ex?.timeBased) ||
+          list[0];
+        if(!source) return list;
+        const timeIdx = list.findIndex(ex => !!ex?.timeBased);
+        const idx = timeIdx >= 0 ? timeIdx : list.length;
         list.splice(idx, 0, {
-          ...hammer,
+          ...source,
           name: "Dumbbell Bicep Curl",
-          meta: "3 sets • 8–12 reps",
+          meta: "3 sets ? 8?12 reps",
           desc: "Classic supinated dumbbell curl for biceps.",
           sets: 3,
           low: 8,
           high: 12,
           unit: "reps",
-          timeBased: false
+          timeBased: false,
+          alt: "Dumbbell Bicep Curl visual"
         });
         return list;
       }
@@ -761,6 +753,10 @@ const DEFAULT_SETTINGS = {
       function updateWorkoutOptions(){
         const current = workoutSelect.value;
         const needsBodyweight = freshStartNeedsBodyweight();
+        if(resetModeActive() && !settings.freshStartDate){
+          settings.freshStartDate = selectedDate;
+          saveJSON(SETTINGS_KEY, settings);
+        }
         const opts = resetModeActive()
           ? (needsBodyweight
               ? [{value:"",label:"Enter bodyweight first"}]
@@ -780,8 +776,9 @@ const DEFAULT_SETTINGS = {
           ? "Fresh start requires bodyweight first. Enter bodyweight to unlock baseline testing."
           : workoutDescription(workoutSelect.value);
         const navLocked = resetModeActive();
-        prevDayBtn.disabled = navLocked || selectedDate === todayISO();
-        nextDayBtn.disabled = true;
+        const minDate = settings.freshStartDate || todayISO();
+        prevDayBtn.disabled = navLocked || selectedDate <= minDate;
+        nextDayBtn.disabled = navLocked;
         updateFreshStartInputLock();
         updateOpenPlanVisibility();
       }
@@ -900,7 +897,9 @@ const DEFAULT_SETTINGS = {
 
       function setSelectedDate(iso){
         if(resetModeActive()) iso = todayISO();
-        if(iso > todayISO()) iso = todayISO();
+        if(!resetModeActive() && settings.freshStartDate && iso < settings.freshStartDate){
+          iso = settings.freshStartDate;
+        }
         selectedDate = iso;
         dateLabel.textContent = prettyDate(selectedDate);
         loadDayIntoEditor(selectedDate);
@@ -1388,7 +1387,9 @@ const DEFAULT_SETTINGS = {
 
         dates.slice(0,160).forEach(date => {
           const day = store.days[date];
-          const w = day.workout ? `Workout ${day.workout}` : "No workout";
+          const isBaselineDay = day.workout === "BASELINE";
+          const w = isBaselineDay ? "Baseline Test" : (day.workout ? `Workout ${day.workout}` : "No workout");
+          const workoutBadgeClass = (isBaselineDay && baselineTestCompleted()) ? "badge good" : "badge";
           const bwTxt = meaningful(day.bodyWeight) ? `${day.bodyWeight} lb` : "No weigh-in";
           const badges = [];
           if(day.goals?.stepsMet) badges.push("Steps");
@@ -1408,7 +1409,7 @@ const DEFAULT_SETTINGS = {
             </div>
             <div class="right">
               ${badges.map(b => `<span class="badge good">${b}</span>`).join("")}
-              <span class="badge">${w}</span>
+              <span class="${workoutBadgeClass}">${w}</span>
               <button type="button" data-load="${date}">Load</button>
             </div>
           `;
@@ -1742,7 +1743,8 @@ const DEFAULT_SETTINGS = {
         setSelectedDate(addDaysISO(selectedDate, -1));
       });
       nextDayBtn.addEventListener("click", () => {
-        return;
+        if(resetModeActive()) return;
+        setSelectedDate(addDaysISO(selectedDate, +1));
       });
       todayBtn.addEventListener("click", () => {
         const t = todayISO();
