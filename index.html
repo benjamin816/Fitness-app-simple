@@ -116,6 +116,15 @@
     .dashBox,.avgBox,.baselineBox{
       border:1px solid var(--line);border-radius:14px;padding:12px;background:#fff;margin-bottom:12px
     }
+    .freshLock{
+      border-color:#fecaca;
+      background:#fef2f2;
+    }
+    .bwRequired{
+      border-color:#dc2626 !important;
+      box-shadow:0 0 0 3px rgba(220,38,38,.12);
+      background:#fff7f7;
+    }
     .dashTitle,.avgTitle{font-weight:950;font-size:13px}
     .dashMeta,.avgMeta{margin-top:4px;color:var(--muted);font-size:12px}
 
@@ -215,7 +224,7 @@
           <strong>Fresh start mode</strong>
           <div class="small" style="margin-top:6px">
             No meaningful logged days were found in the last 30 days, so the app is in fresh start mode.
-            Enter your bodyweight first. Until bodyweight is entered, workout plan access stays locked.
+            Enter your bodyweight first. Until bodyweight is entered, all other inputs stay locked.
             Then choose <strong>Baseline Test</strong> and log one controlled baseline result per exercise.
             Future starting goals will use about 80% of those baseline results.
           </div>
@@ -436,6 +445,26 @@ const DEFAULT_SETTINGS = {
       if(typeof settings.timeIncrementSec !== "number") settings.timeIncrementSec = 5;
       settings.baselines = settings.baselines || {};
 
+      // Add explicit dumbbell bicep curls to Workout C using the same real visual source as Hammer Curl.
+      (function ensureDumbbellBicepCurl(){
+        if(!Array.isArray(WORKOUTS?.C)) return;
+        if(WORKOUTS.C.some(ex => ex?.name === "Dumbbell Bicep Curl")) return;
+        const hammer = WORKOUTS.C.find(ex => ex?.name === "Hammer Curl");
+        if(!hammer) return;
+        const insertAt = Math.max(0, WORKOUTS.C.indexOf(hammer));
+        WORKOUTS.C.splice(insertAt, 0, {
+          ...hammer,
+          name: "Dumbbell Bicep Curl",
+          meta: "3 sets • 8–12 reps",
+          desc: "Classic supinated dumbbell curl for biceps.",
+          sets: 3,
+          low: 8,
+          high: 12,
+          unit: "reps",
+          timeBased: false
+        });
+      })();
+
       let timers = loadJSON(TIMER_KEY, {});
       let cloudState = loadJSON(CLOUD_KEY, { lastSyncAt:"" });
 
@@ -623,17 +652,24 @@ const DEFAULT_SETTINGS = {
           .sort((a,b)=>b.localeCompare(a));
       }
 
-      function countMeaningfulDaysBack(date, back){
+      function countMeaningfulDaysBack(date, back, includeSelected=true){
         let c = 0;
-        for(let i=0;i<back;i++){
+        for(let i=includeSelected ? 0 : 1;i<=back;i++){
           const d = addDaysISO(date, -i);
           if(isMeaningfulDay(store.days[d])) c++;
         }
         return c;
       }
 
+      function baselineTestCompleted(){
+        const items = baselineExercises();
+        if(!items.length) return false;
+        return items.every(ex => meaningful(settings.baselines?.[ex.name]));
+      }
+
       function resetModeActive(){
-        return countMeaningfulDaysBack(selectedDate, 30) === 0;
+        const inactiveBeforeToday = countMeaningfulDaysBack(selectedDate, 30, false) === 0;
+        return inactiveBeforeToday && !baselineTestCompleted();
       }
 
       function freshStartNeedsBodyweight(){
@@ -665,6 +701,22 @@ const DEFAULT_SETTINGS = {
         return out;
       }
 
+      function updateFreshStartInputLock(){
+        const locked = freshStartNeedsBodyweight();
+        const lockTargets = [
+          workoutSelect, openPlanBtn, settingsBtn,
+          steps, cals, protein, stepsChk, calsChk, proteinChk, activityChk,
+          stressRange, energyRange, stressClear, energyClear,
+          copyBtn, resetBtn
+        ];
+        lockTargets.forEach(el => {
+          if(!el) return;
+          el.disabled = !!locked;
+        });
+        bw.classList.toggle("bwRequired", locked);
+        baselineHint.classList.toggle("freshLock", locked);
+      }
+
       function updateWorkoutOptions(){
         const current = workoutSelect.value;
         const needsBodyweight = freshStartNeedsBodyweight();
@@ -681,6 +733,7 @@ const DEFAULT_SETTINGS = {
         workoutDesc.textContent = needsBodyweight
           ? "Fresh start requires bodyweight first. Enter bodyweight to unlock baseline testing."
           : workoutDescription(workoutSelect.value);
+        updateFreshStartInputLock();
         updateOpenPlanVisibility();
       }
 
