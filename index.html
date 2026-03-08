@@ -461,28 +461,90 @@ const DEFAULT_SETTINGS = {
       if(typeof settings.timeIncrementSec !== "number") settings.timeIncrementSec = 5;
       settings.baselines = settings.baselines || {};
 
-      // Add explicit dumbbell bicep curls to Workout C using the same real visual source as Hammer Curl.
       (function ensureDumbbellBicepCurl(){
         if(!Array.isArray(WORKOUTS?.C)) return;
         if(WORKOUTS.C.some(ex => ex?.name === "Dumbbell Bicep Curl")) return;
-        const hammer = WORKOUTS.C.find(ex => ex?.name === "Hammer Curl");
-        if(!hammer) return;
-        const insertAt = Math.max(0, WORKOUTS.C.indexOf(hammer));
+        const source =
+          WORKOUTS.C.find(ex => !ex?.timeBased) ||
+          WORKOUTS.B.find(ex => ex?.name === "Dumbbell Overhead Press") ||
+          WORKOUTS.A.find(ex => ex?.name === "Dumbbell Bench Press");
+        if(!source) return;
+        const timeIndex = WORKOUTS.C.findIndex(ex => !!ex?.timeBased);
+        const insertAt = timeIndex >= 0 ? timeIndex : WORKOUTS.C.length;
         WORKOUTS.C.splice(insertAt, 0, {
-          ...hammer,
+          ...source,
           name: "Dumbbell Bicep Curl",
-          meta: "3 sets • 8–12 reps",
+          meta: "4 sets - 6-8 reps",
           desc: "Classic supinated dumbbell curl for biceps.",
-          sets: 3,
-          low: 8,
-          high: 12,
+          sets: 4,
+          low: 6,
+          high: 8,
           unit: "reps",
-          timeBased: false
+          timeBased: false,
+          img: "https://fitnessprogramer.com/wp-content/uploads/2021/02/Dumbbell-Curl.gif",
+          alt: "Dumbbell Curl exercise demonstration"
         });
+      })();
+
+      function slugifyExerciseName(name){
+        return String(name || "").toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "");
+      }
+
+      const EXERCISE_CONFIG = (() => {
+        const byName = {};
+        ["A","B","C"].forEach(day => {
+          (WORKOUTS[day] || []).forEach((ex, idx) => {
+            if(!ex || !ex.name) return;
+            if(!byName[ex.name]){
+              byName[ex.name] = {
+                id: slugifyExerciseName(ex.name),
+                label: ex.name,
+                metricType: ex.timeBased ? "tut" : "weight",
+                baselineType: ex.timeBased ? "tut" : "2rm",
+                progressionType: ex.timeBased ? "tut" : "weight",
+                tutCapSec: ex.timeBased ? 90 : null,
+                plans: [],
+                gifUrl: ex.img || "",
+                alt: ex.alt || `${ex.name} exercise demonstration`,
+                meta: ex.meta || "",
+                desc: ex.desc || "",
+                sets: Number(ex.sets || 0),
+                low: Number(ex.low || 0),
+                high: Number(ex.high || 0),
+                timeBased: !!ex.timeBased,
+                order: idx + 1
+              };
+            }
+            if(!byName[ex.name].plans.includes(day)) byName[ex.name].plans.push(day);
+          });
+        });
+
+        byName["Dumbbell Bicep Curl"] = {
+          id: "db_curl",
+          label: "Dumbbell Bicep Curl",
+          metricType: "weight",
+          baselineType: "2rm",
+          progressionType: "weight",
+          tutCapSec: null,
+          plans: ["C"],
+          gifUrl: "https://fitnessprogramer.com/wp-content/uploads/2021/02/Dumbbell-Curl.gif",
+          alt: "Dumbbell Curl exercise demonstration",
+          meta: "4 sets - 6-8 reps",
+          desc: "Classic supinated dumbbell curl for biceps.",
+          sets: 4,
+          low: 6,
+          high: 8,
+          timeBased: false,
+          order: 4
+        };
+        return byName;
       })();
 
       let timers = loadJSON(TIMER_KEY, {});
       let cloudState = loadJSON(CLOUD_KEY, { lastSyncAt:"" });
+      Object.keys(store.days || {}).forEach(d => {
+        store.days[d] = normalizedDay(store.days[d]);
+      });
 
       const bw = $("bw");
       const workoutSelect = $("workoutSelect");
@@ -574,6 +636,39 @@ const DEFAULT_SETTINGS = {
         return !(v === "" || v === null || v === undefined);
       }
 
+      function normalizedDay(day){
+        const src = day && typeof day === "object" ? day : {};
+        return {
+          bodyWeight: src.bodyWeight ?? "",
+          workout: src.workout ?? "",
+          workoutType: src.workoutType || src.workout || "",
+          baselineCompleted: src.baselineCompleted === true || String(src.baselineCompleted).toLowerCase() === "true",
+          baselineCompletedDate: src.baselineCompletedDate || "",
+          baselineData: src.baselineData && typeof src.baselineData === "object" ? src.baselineData : {},
+          goals: {
+            steps: src.goals?.steps ?? "",
+            stepsMet: !!src.goals?.stepsMet,
+            calories: src.goals?.calories ?? "",
+            caloriesMet: !!src.goals?.caloriesMet,
+            protein: src.goals?.protein ?? "",
+            proteinMet: !!src.goals?.proteinMet,
+            activityDone: !!src.goals?.activityDone
+          },
+          checkin: {
+            stress: meaningful(src.checkin?.stress) ? Number(src.checkin.stress) : null,
+            energy: meaningful(src.checkin?.energy) ? Number(src.checkin.energy) : null
+          },
+          workoutLog: src.workoutLog && typeof src.workoutLog === "object" ? src.workoutLog : {},
+          updatedAt: src.updatedAt || ""
+        };
+      }
+
+      function ensureDayRecord(date){
+        if(!store.days[date]) store.days[date] = normalizedDay({});
+        else store.days[date] = normalizedDay(store.days[date]);
+        return store.days[date];
+      }
+
       function setSyncStatus(text){
         syncStatus.textContent = text;
         syncStatus.className = "footerSync";
@@ -608,11 +703,11 @@ const DEFAULT_SETTINGS = {
       function defaultWeightForProtein(){
         const avg = getRollingWeightAverageValue(selectedDate);
         if(avg) return { weight: avg, source: "7-weigh-in rolling average" };
-        const current = Number(bw.value);
-        if(Number.isFinite(current) && current > 0) return { weight: current, source: "current entered bodyweight" };
         const last = getLastLoggedWeight(selectedDate);
         if(last) return { weight: last, source: "last logged weigh-in" };
         if(freshStartNeedsBodyweight()) return { weight: null, source: "Bodyweight required before protein goal can be calculated" };
+        const current = Number(bw.value);
+        if(Number.isFinite(current) && current > 0) return { weight: current, source: "current entered bodyweight" };
         return { weight: null, source: "No weigh-in data yet" };
       }
 
@@ -665,6 +760,8 @@ const DEFAULT_SETTINGS = {
           if(meaningful(day.checkin.stress)) return true;
           if(meaningful(day.checkin.energy)) return true;
         }
+        if(day.baselineData && Object.values(day.baselineData).some(meaningful)) return true;
+        if(day.baselineCompleted) return true;
         if(isMeaningfulWorkoutLog(day.workoutLog)) return true;
         return false;
       }
@@ -687,19 +784,40 @@ const DEFAULT_SETTINGS = {
         return c;
       }
 
-      function baselineTestCompleted(){
+      function baselineDataForDate(date){
+        return ensureDayRecord(date).baselineData || {};
+      }
+
+      function baselineValueForDate(date, exName){
+        const data = baselineDataForDate(date);
+        if(meaningful(data?.[exName])) return data[exName];
+        if(date === settings.freshStartDate && meaningful(settings.baselines?.[exName])) return settings.baselines[exName];
+        return "";
+      }
+
+      function baselineTestCompleted(date=selectedDate){
+        const day = ensureDayRecord(date);
         const items = baselineExercises();
         if(!items.length) return false;
-        return items.every(ex => meaningful(settings.baselines?.[ex.name]));
+        const complete = items.every(ex => meaningful(baselineValueForDate(date, ex.name)));
+        if(complete !== !!day.baselineCompleted){
+          day.baselineCompleted = complete;
+          if(complete && !day.baselineCompletedDate) day.baselineCompletedDate = date;
+          if(!complete) day.baselineCompletedDate = "";
+        }
+        return complete;
       }
 
       function resetModeActive(){
-        const inactiveBeforeToday = countMeaningfulDaysBack(selectedDate, 30, false) === 0;
-        return inactiveBeforeToday && !baselineTestCompleted();
+        if(!settings.freshStartDate) return false;
+        if(selectedDate !== settings.freshStartDate) return false;
+        return !baselineTestCompleted(selectedDate);
       }
 
       function freshStartNeedsBodyweight(){
-        return resetModeActive() && !meaningful(bw.value);
+        if(!resetModeActive()) return false;
+        const dayWeight = ensureDayRecord(selectedDate).bodyWeight;
+        return !meaningful(dayWeight) && !meaningful(bw.value);
       }
 
       function exerciseKey(day, ex){
@@ -714,51 +832,56 @@ const DEFAULT_SETTINGS = {
         return "Pick a workout day to track that day's plan.";
       }
 
+      function workoutsForDay(day){
+        const list = Array.isArray(WORKOUTS?.[day]) ? [...WORKOUTS[day]] : [];
+        const merged = list.map(ex => {
+          const cfg = EXERCISE_CONFIG[ex.name];
+          if(!cfg) return { ...ex };
+          return {
+            ...ex,
+            name: cfg.label,
+            meta: cfg.meta,
+            desc: cfg.desc,
+            sets: cfg.sets || ex.sets,
+            low: cfg.low || ex.low,
+            high: cfg.high || ex.high,
+            timeBased: cfg.metricType === "tut",
+            img: cfg.gifUrl || ex.img,
+            alt: cfg.alt || ex.alt
+          };
+        });
+        if(day !== "C") return merged;
+        if(merged.some(ex => ex?.name === "Dumbbell Bicep Curl")) return merged;
+        const cfg = EXERCISE_CONFIG["Dumbbell Bicep Curl"];
+        if(!cfg) return merged;
+        const timeIdx = merged.findIndex(ex => !!ex?.timeBased);
+        const idx = timeIdx >= 0 ? timeIdx : merged.length;
+        merged.splice(idx, 0, {
+          name: cfg.label,
+          meta: cfg.meta,
+          desc: cfg.desc,
+          sets: cfg.sets,
+          low: cfg.low,
+          high: cfg.high,
+          unit: "reps",
+          timeBased: false,
+          img: cfg.gifUrl,
+          alt: cfg.alt
+        });
+        return merged;
+      }
+
       function baselineExercises(){
         const seen = new Set();
         const out = [];
         ["A","B","C"].forEach(day => {
           workoutsForDay(day).forEach(ex => {
-            if(ex.timeBased) return;
-            if(seen.has(ex.name)) return;
+            if(!ex || !ex.name || seen.has(ex.name)) return;
             seen.add(ex.name);
-            out.push(ex);
+            out.push({ ...ex });
           });
         });
-        // Hard guarantee: include dumbbell bicep curl in baseline.
-        if(!seen.has("Dumbbell Bicep Curl")){
-          const curl = workoutsForDay("C").find(ex => ex?.name === "Dumbbell Bicep Curl");
-          if(curl) out.push({ ...curl });
-        }
         return out;
-      }
-
-      function workoutsForDay(day){
-        const list = Array.isArray(WORKOUTS?.[day]) ? [...WORKOUTS[day]] : [];
-        if(day !== "C") return list;
-        if(list.some(ex => ex?.name === "Dumbbell Bicep Curl")) return list;
-        const source =
-          (WORKOUTS?.B || []).find(ex => ex?.name === "Dumbbell Overhead Press") ||
-          (WORKOUTS?.A || []).find(ex => ex?.name === "Dumbbell Bench Press") ||
-          list.find(ex => !ex?.timeBased) ||
-          list[0];
-        if(!source) return list;
-        const timeIdx = list.findIndex(ex => !!ex?.timeBased);
-        const idx = timeIdx >= 0 ? timeIdx : list.length;
-        list.splice(idx, 0, {
-          ...source,
-          name: "Dumbbell Bicep Curl",
-          meta: "4 sets - 6-8 reps",
-          desc: "Classic supinated dumbbell curl for biceps.",
-          sets: 4,
-          low: 6,
-          high: 8,
-          unit: "reps",
-          timeBased: false,
-          img: "https://fitnessprogramer.com/wp-content/uploads/2021/02/Dumbbell-Curl.gif",
-          alt: "Dumbbell Curl exercise demonstration"
-        });
-        return list;
       }
 
       function updateFreshStartInputLock(){
@@ -778,19 +901,33 @@ const DEFAULT_SETTINGS = {
       }
 
       function updateWorkoutOptions(){
+        if(!settings.freshStartDate){
+          const inactiveBeforeToday = countMeaningfulDaysBack(todayISO(), 30, false) === 0;
+          if(inactiveBeforeToday){
+            settings.freshStartDate = todayISO();
+            saveJSON(SETTINGS_KEY, settings);
+          }
+        }
         const current = workoutSelect.value;
         const needsBodyweight = freshStartNeedsBodyweight();
-        if(resetModeActive() && !settings.freshStartDate){
-          settings.freshStartDate = selectedDate;
-          saveJSON(SETTINGS_KEY, settings);
-        }
+        const day = ensureDayRecord(selectedDate);
+        const dayWorkout = day.workoutType || day.workout || "";
+        const baselineDay = dayWorkout === "BASELINE";
         const opts = resetModeActive()
           ? (needsBodyweight
               ? [{value:"",label:"Enter bodyweight first"}]
               : [{value:"",label:"None"},{value:"BASELINE",label:"Baseline Test"}])
-          : [{value:"",label:"None"},{value:"A",label:"Workout A"},{value:"B",label:"Workout B"},{value:"C",label:"Workout C"}];
+          : (baselineDay
+              ? [{value:"BASELINE",label:"Baseline Test"}]
+              : [{value:"",label:"None"},{value:"A",label:"Workout A"},{value:"B",label:"Workout B"},{value:"C",label:"Workout C"}]);
         workoutSelect.innerHTML = opts.map(o => `<option value="${o.value}">${o.label}</option>`).join("");
-        if(resetModeActive() && !needsBodyweight){
+        if(resetModeActive() && !needsBodyweight && baselineDay){
+          workoutSelect.value = "BASELINE";
+        } else if(resetModeActive() && !needsBodyweight && !dayWorkout){
+          workoutSelect.value = "BASELINE";
+          day.workout = "BASELINE";
+          day.workoutType = "BASELINE";
+        } else if(baselineDay){
           workoutSelect.value = "BASELINE";
         } else if(opts.some(o => o.value === current)){
           workoutSelect.value = current;
@@ -801,7 +938,7 @@ const DEFAULT_SETTINGS = {
         baselineHint.style.display = resetModeActive() ? "block" : "none";
         workoutDesc.textContent = needsBodyweight
           ? "Fresh start requires bodyweight first. Enter bodyweight to unlock baseline testing."
-          : workoutDescription(workoutSelect.value);
+          : (baselineDay ? "Baseline test logged - click Open & Track Plan to edit." : workoutDescription(workoutSelect.value));
         const navLocked = resetModeActive();
         const minDate = settings.freshStartDate || todayISO();
         prevDayBtn.disabled = navLocked || selectedDate <= minDate;
@@ -853,9 +990,15 @@ const DEFAULT_SETTINGS = {
 
       function collectEditorData(){
         syncGoalTogglesFromInputs();
+        const existing = ensureDayRecord(selectedDate);
+        const workoutType = workoutSelect.value || existing.workoutType || existing.workout || "";
         return {
           bodyWeight: bw.value || "",
-          workout: workoutSelect.value || "",
+          workout: workoutType,
+          workoutType,
+          baselineCompleted: existing.baselineCompleted || false,
+          baselineCompletedDate: existing.baselineCompletedDate || "",
+          baselineData: existing.baselineData || {},
           goals: {
             steps: steps.value || "",
             stepsMet: !!stepsChk.checked,
@@ -869,13 +1012,13 @@ const DEFAULT_SETTINGS = {
             stress: stressVal,
             energy: energyVal
           },
-          workoutLog: store.days[selectedDate]?.workoutLog || {},
+          workoutLog: existing.workoutLog || {},
           updatedAt: new Date().toISOString()
         };
       }
 
       function loadDayIntoEditor(date){
-        const day = store.days[date] || null;
+        const day = store.days[date] ? normalizedDay(store.days[date]) : null;
 
         bw.value = "";
         steps.value = "";
@@ -892,7 +1035,8 @@ const DEFAULT_SETTINGS = {
         if(!day) return;
 
         bw.value = day.bodyWeight ?? "";
-        workoutSelect.value = [...workoutSelect.options].some(o => o.value === (day.workout || "")) ? (day.workout || "") : "";
+        const dayWorkout = day.workoutType || day.workout || "";
+        workoutSelect.value = [...workoutSelect.options].some(o => o.value === dayWorkout) ? dayWorkout : "";
         workoutDesc.textContent = workoutDescription(workoutSelect.value);
         updateOpenPlanVisibility();
 
@@ -907,7 +1051,8 @@ const DEFAULT_SETTINGS = {
       }
 
       function autoSaveLocal(){
-        store.days[selectedDate] = collectEditorData();
+        store.days[selectedDate] = normalizedDay(collectEditorData());
+        baselineTestCompleted(selectedDate);
         saveJSON(STORE_KEY, store);
         renderHistory();
         renderWeightAverage();
@@ -923,11 +1068,12 @@ const DEFAULT_SETTINGS = {
       }
 
       function setSelectedDate(iso){
-        if(resetModeActive()) iso = todayISO();
+        if(resetModeActive()) iso = settings.freshStartDate || todayISO();
         if(!resetModeActive() && settings.freshStartDate && iso < settings.freshStartDate){
           iso = settings.freshStartDate;
         }
         selectedDate = iso;
+        ensureDayRecord(selectedDate);
         dateLabel.textContent = prettyDate(selectedDate);
         loadDayIntoEditor(selectedDate);
         refreshGoalTexts();
@@ -987,9 +1133,24 @@ const DEFAULT_SETTINGS = {
         return Math.round(x / s) * s;
       }
 
+      function baselineReferenceValue(exName){
+        if(meaningful(settings.baselines?.[exName])) return Number(settings.baselines[exName]);
+        if(settings.freshStartDate){
+          const fromStart = Number(store.days?.[settings.freshStartDate]?.baselineData?.[exName]);
+          if(Number.isFinite(fromStart) && fromStart > 0) return fromStart;
+        }
+        const pastBaseline = sortedDatesDesc()
+          .find(d => d <= selectedDate && String(store.days[d]?.workoutType || store.days[d]?.workout) === "BASELINE" && store.days[d]?.baselineCompleted);
+        if(pastBaseline){
+          const v = Number(store.days[pastBaseline]?.baselineData?.[exName]);
+          if(Number.isFinite(v) && v > 0) return v;
+        }
+        return null;
+      }
+
       function baselineStartGoal(ex){
-        const base = settings.baselines?.[ex.name];
-        if(base === undefined || base === null || base === "") return "";
+        const base = baselineReferenceValue(ex.name);
+        if(!Number.isFinite(base) || base <= 0) return "";
         if(ex.timeBased) return Math.max(5, Math.round((Number(base) * 0.8) / 5) * 5);
         return roundToStep(Number(base) * 0.8, settings.increment);
       }
@@ -1048,9 +1209,12 @@ const DEFAULT_SETTINGS = {
 
       function setExerciseLog(key, payload){
         if(!store.days[selectedDate]) store.days[selectedDate] = collectEditorData();
-        store.days[selectedDate].workout = workoutSelect.value || "";
+        const workoutType = workoutSelect.value || store.days[selectedDate].workoutType || store.days[selectedDate].workout || "";
+        store.days[selectedDate].workout = workoutType;
+        store.days[selectedDate].workoutType = workoutType;
         store.days[selectedDate].workoutLog = store.days[selectedDate].workoutLog || {};
         store.days[selectedDate].workoutLog[key] = payload;
+        if(workoutType === "BASELINE") baselineTestCompleted(selectedDate);
         saveJSON(STORE_KEY, store);
         renderHistory();
       }
@@ -1112,8 +1276,8 @@ const DEFAULT_SETTINGS = {
       }
 
       function extractExercisesForDate(date){
-        const day = store.days[date];
-        const workoutDay = day?.workout || "";
+        const day = normalizedDay(store.days[date]);
+        const workoutDay = day?.workoutType || day?.workout || "";
         if(!["A","B","C","BASELINE"].includes(workoutDay)) return [];
         const log = day?.workoutLog || {};
         const exList = workoutDay === "BASELINE" ? baselineExercises() : workoutsForDay(workoutDay);
@@ -1164,7 +1328,11 @@ const DEFAULT_SETTINGS = {
 
       async function syncCurrentDayToCloud(){
         try{
-          const day = collectEditorData();
+          const day = normalizedDay(collectEditorData());
+          if((day.workoutType || day.workout) === "BASELINE"){
+            day.baselineCompleted = baselineTestCompleted(selectedDate);
+            day.baselineCompletedDate = day.baselineCompleted ? selectedDate : "";
+          }
           if(!isMeaningfulDay(day)){
             setSyncStatus("● synced");
             return;
@@ -1175,6 +1343,10 @@ const DEFAULT_SETTINGS = {
             updatedAt: day.updatedAt,
             bodyWeight: day.bodyWeight,
             workoutDay: day.workout,
+            workoutType: day.workoutType || day.workout || "",
+            baselineCompleted: !!day.baselineCompleted,
+            baselineCompletedDate: day.baselineCompletedDate || "",
+            baselineData: day.baselineData || {},
             steps: day.goals.steps,
             stepsMet: day.goals.stepsMet,
             calories: day.goals.calories,
@@ -1224,13 +1396,23 @@ const DEFAULT_SETTINGS = {
         daysArray.forEach(row => {
           const d = String(row.date || "");
           if(!d) return;
-          const existing = store.days[d];
+          const existing = normalizedDay(store.days[d]);
           const existingAt = existing?.updatedAt || "";
           const cloudAt = String(row.updated_at || "");
           if(!existing || cloudAt >= existingAt){
-            store.days[d] = {
+            let baselineData = {};
+            if(row.baseline_data_json){
+              try { baselineData = JSON.parse(row.baseline_data_json) || {}; } catch {}
+            } else if(row.baseline_data && typeof row.baseline_data === "object"){
+              baselineData = row.baseline_data;
+            }
+            store.days[d] = normalizedDay({
               bodyWeight: row.body_weight_lb || "",
               workout: row.workout_day || "",
+              workoutType: row.workout_type || row.workout_day || "",
+              baselineCompleted: String(row.baseline_completed).toLowerCase() === "true" || row.baseline_completed === true,
+              baselineCompletedDate: row.baseline_completed_date || "",
+              baselineData,
               goals: {
                 steps: row.steps || "",
                 stepsMet: meaningful(row.steps) ? String(row.steps_met) === "true" : false,
@@ -1246,7 +1428,7 @@ const DEFAULT_SETTINGS = {
               },
               workoutLog: existing?.workoutLog || {},
               updatedAt: cloudAt
-            };
+            });
           }
         });
       }
@@ -1257,16 +1439,18 @@ const DEFAULT_SETTINGS = {
           const d = String(row.date || "");
           if(!d) return;
           if(!store.days[d]){
-            store.days[d] = {
+            store.days[d] = normalizedDay({
               bodyWeight:"",
               workout: row.workout_day || "",
+              workoutType: row.workout_type || row.workout_day || "",
               goals: { steps:"", stepsMet:false, calories:"", caloriesMet:false, protein:"", proteinMet:false, activityDone:false },
               checkin: { stress:null, energy:null },
               workoutLog: {},
               updatedAt: row.updated_at || ""
-            };
+            });
           }
           store.days[d].workout = store.days[d].workout || row.workout_day || "";
+          store.days[d].workoutType = store.days[d].workoutType || row.workout_type || row.workout_day || "";
           store.days[d].workoutLog = store.days[d].workoutLog || {};
 
           let parsed = null;
@@ -1414,10 +1598,10 @@ const DEFAULT_SETTINGS = {
         }
 
         dates.slice(0,160).forEach(date => {
-          const day = store.days[date];
-          const isBaselineDay = day.workout === "BASELINE";
+          const day = normalizedDay(store.days[date]);
+          const isBaselineDay = (day.workoutType || day.workout) === "BASELINE";
           const w = isBaselineDay ? "Baseline Test" : (day.workout ? `Workout ${day.workout}` : "No workout");
-          const workoutBadgeClass = (isBaselineDay && baselineTestCompleted()) ? "badge good" : "badge";
+          const workoutBadgeClass = (isBaselineDay && baselineTestCompleted(date)) ? "badge good" : "badge";
           const bwTxt = meaningful(day.bodyWeight) ? `${day.bodyWeight} lb` : "No weigh-in";
           const badges = [];
           if(day.goals?.stepsMet) badges.push("Steps");
@@ -1454,9 +1638,14 @@ const DEFAULT_SETTINGS = {
         planTitle.textContent = "Baseline Test";
         planMeta.textContent = `${prettyDate(selectedDate)} - onboarding baseline only (not a sloppy max)`;
         planRows.innerHTML = "";
+        const day = ensureDayRecord(selectedDate);
+        day.workout = "BASELINE";
+        day.workoutType = "BASELINE";
+        day.baselineData = day.baselineData || {};
 
         baselineExercises().forEach(ex => {
-          const current = settings.baselines?.[ex.name] ?? "";
+          const cfg = EXERCISE_CONFIG[ex.name] || {};
+          const current = baselineValueForDate(selectedDate, ex.name);
           const card = document.createElement("div");
           card.className = "exerciseCard";
           card.innerHTML = `
@@ -1467,22 +1656,38 @@ const DEFAULT_SETTINGS = {
                 <div class="exerciseMeta">${ex.meta}</div>
                 <div class="exerciseDesc">${ex.desc}</div>
                 <div class="goalMeta">
-                  <div><strong>Goal:</strong> ${ex.timeBased ? "Find the longest controlled hold/time you can safely do with good form." : "Find the heaviest weight you can lift safely, with good form, for 2 reps."}</div>
+                  <div><strong>Goal:</strong> ${cfg.metricType === "tut" ? "Find the longest controlled hold/time you can safely do with good form." : "Find the heaviest weight you can lift safely, with good form, for 2 reps."}</div>
                   <div><strong>Important:</strong> This is not an all-out sloppy max.</div>
                 </div>
                 <div class="singleRow">
-                  <label class="small">${ex.timeBased ? "Single baseline time entry (sec)" : "Single baseline weight entry (lb for a controlled 2-rep result)"}</label>
-                  <input class="baselineInput" type="number" step="${ex.timeBased ? "1" : "0.5"}" value="${current}" />
+                  <label class="small">${cfg.metricType === "tut" ? "Single baseline time entry (sec)" : "Single baseline weight entry (lb for a controlled 2-rep result)"}</label>
+                  <input class="baselineInput" type="number" step="${cfg.metricType === "tut" ? "1" : "0.5"}" value="${current}" />
                 </div>
               </div>
             </div>
           `;
           card.querySelector(".baselineInput").addEventListener("input", () => {
-            const val = card.querySelector(".baselineInput").value;
-            if(meaningful(val)) settings.baselines[ex.name] = Number(val);
+            const raw = card.querySelector(".baselineInput").value;
+            let val = meaningful(raw) ? Number(raw) : "";
+            if(cfg.metricType === "tut" && meaningful(val)){
+              val = Math.max(1, Math.min(Number(cfg.tutCapSec || 90), Math.round(Number(val))));
+            }
+            if(meaningful(val)) day.baselineData[ex.name] = val;
+            else delete day.baselineData[ex.name];
+            if(meaningful(val)) settings.baselines[ex.name] = val;
             else delete settings.baselines[ex.name];
+            day.baselineCompleted = baselineTestCompleted(selectedDate);
+            day.baselineCompletedDate = day.baselineCompleted ? selectedDate : "";
+            day.workout = "BASELINE";
+            day.workoutType = "BASELINE";
+            day.updatedAt = new Date().toISOString();
+            store.days[selectedDate] = normalizedDay(day);
+            saveJSON(STORE_KEY, store);
             saveJSON(SETTINGS_KEY, settings);
             syncSettingsToCloud();
+            queueAutoSave();
+            updateWorkoutOptions();
+            renderHistory();
           });
           planRows.appendChild(card);
         });
