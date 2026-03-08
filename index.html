@@ -401,6 +401,22 @@
 
       <div class="hr"></div>
       <button id="resetSettingsBtn" class="danger" type="button">Reset settings to defaults</button>
+      <div class="hr"></div>
+      <div class="baselineBox" id="purgeBox">
+        <strong style="color:#b91c1c">Danger zone</strong>
+        <div class="small" style="margin-top:6px">Purge all memory erases all saved history and resets this app to a blank slate.</div>
+        <div class="btns" style="margin-top:10px">
+          <button id="purgeStartBtn" class="danger" type="button">Purge all memory</button>
+        </div>
+        <div id="purgeConfirmWrap" style="display:none;margin-top:10px">
+          <label>Type ERASE to enable final purge</label>
+          <input id="purgePhrase" type="text" placeholder="Type ERASE" />
+          <div class="btns" style="margin-top:10px">
+            <button id="purgeConfirmBtn" class="danger" type="button" disabled>Confirm purge</button>
+            <button id="purgeCancelBtn" type="button">Cancel</button>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -523,6 +539,11 @@ const DEFAULT_SETTINGS = {
       const setIncrement = $("setIncrement");
       const setTimeIncrement = $("setTimeIncrement");
       const resetSettingsBtn = $("resetSettingsBtn");
+      const purgeStartBtn = $("purgeStartBtn");
+      const purgeConfirmWrap = $("purgeConfirmWrap");
+      const purgePhrase = $("purgePhrase");
+      const purgeConfirmBtn = $("purgeConfirmBtn");
+      const purgeCancelBtn = $("purgeCancelBtn");
 
       let selectedDate = todayISO();
       let stressVal = null;
@@ -561,9 +582,10 @@ const DEFAULT_SETTINGS = {
       }
 
       function getRollingWeightAverageValue(date){
+        const anchor = date > todayISO() ? todayISO() : date;
         const weights = [];
         for(let i=0;i<10;i++){
-          const d = addDaysISO(date, -i);
+          const d = addDaysISO(anchor, -i);
           const n = Number(store.days[d]?.bodyWeight);
           if(Number.isFinite(n) && n > 0) weights.push(n);
         }
@@ -574,8 +596,9 @@ const DEFAULT_SETTINGS = {
       }
 
       function getLastLoggedWeight(date){
+        const anchor = date > todayISO() ? todayISO() : date;
         for(let i=0;i<365;i++){
-          const d = addDaysISO(date, -i);
+          const d = addDaysISO(anchor, -i);
           const n = Number(store.days[d]?.bodyWeight);
           if(Number.isFinite(n) && n > 0) return n;
         }
@@ -647,15 +670,18 @@ const DEFAULT_SETTINGS = {
       }
 
       function sortedDatesDesc(){
+        const today = todayISO();
         return Object.keys(store.days)
+          .filter(d => d <= today)
           .filter(d => isMeaningfulDay(store.days[d]))
           .sort((a,b)=>b.localeCompare(a));
       }
 
       function countMeaningfulDaysBack(date, back, includeSelected=true){
+        const anchor = date > todayISO() ? todayISO() : date;
         let c = 0;
         for(let i=includeSelected ? 0 : 1;i<=back;i++){
-          const d = addDaysISO(date, -i);
+          const d = addDaysISO(anchor, -i);
           if(isMeaningfulDay(store.days[d])) c++;
         }
         return c;
@@ -722,14 +748,15 @@ const DEFAULT_SETTINGS = {
         list.splice(idx, 0, {
           ...source,
           name: "Dumbbell Bicep Curl",
-          meta: "3 sets ? 8?12 reps",
+          meta: "4 sets - 6-8 reps",
           desc: "Classic supinated dumbbell curl for biceps.",
-          sets: 3,
-          low: 8,
-          high: 12,
+          sets: 4,
+          low: 6,
+          high: 8,
           unit: "reps",
           timeBased: false,
-          alt: "Dumbbell Bicep Curl visual"
+          img: "https://fitnessprogramer.com/wp-content/uploads/2021/02/Dumbbell-Curl.gif",
+          alt: "Dumbbell Curl exercise demonstration"
         });
         return list;
       }
@@ -919,9 +946,10 @@ const DEFAULT_SETTINGS = {
       }
 
       function exposuresInWindow(key, daysBack){
+        const anchor = selectedDate > todayISO() ? todayISO() : selectedDate;
         const out = [];
         for(let i=0;i<=daysBack;i++){
-          const d = addDaysISO(selectedDate, -i);
+          const d = addDaysISO(anchor, -i);
           const raw = store.days[d]?.workoutLog?.[key];
           if(!raw) continue;
           const log = getLog(raw);
@@ -1735,7 +1763,38 @@ const DEFAULT_SETTINGS = {
 
         reflectProtein();
         [setStepsGoal, setCalsGoal, setProteinPerLb, setIncrement, setTimeIncrement].forEach(inp => inp.oninput = syncSettings);
+        purgeConfirmWrap.style.display = "none";
+        purgePhrase.value = "";
+        purgeConfirmBtn.disabled = true;
         openModal(settingsBackdrop);
+      }
+
+      async function purgeAllMemory(){
+        if(!confirm("Final confirmation: erase all history and reset this app for a new user?")) return;
+        store = { days:{} };
+        timers = {};
+        settings = JSON.parse(JSON.stringify(DEFAULT_SETTINGS));
+        cloudState = { lastSyncAt:"" };
+        saveJSON(STORE_KEY, store);
+        saveJSON(TIMER_KEY, timers);
+        saveJSON(SETTINGS_KEY, settings);
+        saveJSON(CLOUD_KEY, cloudState);
+        try {
+          await cloudPost({ action:"purgeAllData" });
+        } catch {}
+        purgeConfirmWrap.style.display = "none";
+        purgePhrase.value = "";
+        purgeConfirmBtn.disabled = true;
+        closeModal(settingsBackdrop);
+        setSelectedDate(todayISO());
+        refreshGoalTexts();
+        renderHistory();
+        renderWeightAverage();
+        renderDashboard();
+        updateWorkoutOptions();
+        syncGoalTogglesFromInputs();
+        setSyncStatus("● memory purged");
+        alert("All memory has been purged.");
       }
 
       prevDayBtn.addEventListener("click", () => {
@@ -1835,6 +1894,21 @@ const DEFAULT_SETTINGS = {
         closeModal(settingsBackdrop);
         queueAutoSave();
       });
+      purgeStartBtn.addEventListener("click", () => {
+        purgeConfirmWrap.style.display = "block";
+        purgePhrase.value = "";
+        purgeConfirmBtn.disabled = true;
+        purgePhrase.focus();
+      });
+      purgePhrase.addEventListener("input", () => {
+        purgeConfirmBtn.disabled = purgePhrase.value.trim().toUpperCase() !== "ERASE";
+      });
+      purgeCancelBtn.addEventListener("click", () => {
+        purgeConfirmWrap.style.display = "none";
+        purgePhrase.value = "";
+        purgeConfirmBtn.disabled = true;
+      });
+      purgeConfirmBtn.addEventListener("click", purgeAllMemory);
 
       refreshGoalTexts();
       setSelectedDate(selectedDate);
