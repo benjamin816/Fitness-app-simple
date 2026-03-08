@@ -647,7 +647,9 @@ const DEFAULT_SETTINGS = {
       }
 
       function sortedDatesDesc(){
+        const today = todayISO();
         return Object.keys(store.days)
+          .filter(d => d <= today)
           .filter(d => isMeaningfulDay(store.days[d]))
           .sort((a,b)=>b.localeCompare(a));
       }
@@ -699,6 +701,23 @@ const DEFAULT_SETTINGS = {
             out.push(ex);
           });
         });
+        // Hard guarantee: include dumbbell bicep curl in baseline (uses same visual source as Hammer Curl).
+        if(!seen.has("Dumbbell Bicep Curl")){
+          const hammer = workoutsForDay("C").find(ex => ex?.name === "Hammer Curl");
+          if(hammer){
+            out.push({
+              ...hammer,
+              name: "Dumbbell Bicep Curl",
+              meta: "3 sets • 8–12 reps",
+              desc: "Classic supinated dumbbell curl for biceps.",
+              sets: 3,
+              low: 8,
+              high: 12,
+              unit: "reps",
+              timeBased: false
+            });
+          }
+        }
         return out;
       }
 
