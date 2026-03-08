@@ -537,6 +537,22 @@ const DEFAULT_SETTINGS = {
           timeBased: false,
           order: 4
         };
+        ["Band Lat Pulldown","Band Face Pull"].forEach(name => {
+          if(!byName[name]) return;
+          byName[name] = {
+            ...byName[name],
+            metricType: "tut",
+            baselineType: "tut",
+            progressionType: "tut",
+            tutCapSec: 90,
+            timeBased: true,
+            sets: 3,
+            low: 30,
+            high: 60,
+            meta: "3 sets - 30-60 sec controlled TUT",
+            desc: `${name} tracked by time under tension (seconds), not weight.`
+          };
+        });
         return byName;
       })();
 
@@ -1133,6 +1149,12 @@ const DEFAULT_SETTINGS = {
         return Math.round(x / s) * s;
       }
 
+      function tutCapForExercise(ex){
+        const cfg = EXERCISE_CONFIG?.[ex?.name];
+        const cap = Number(cfg?.tutCapSec || 90);
+        return Number.isFinite(cap) && cap > 0 ? cap : 90;
+      }
+
       function baselineReferenceValue(exName){
         if(meaningful(settings.baselines?.[exName])) return Number(settings.baselines[exName]);
         if(settings.freshStartDate){
@@ -1151,7 +1173,10 @@ const DEFAULT_SETTINGS = {
       function baselineStartGoal(ex){
         const base = baselineReferenceValue(ex.name);
         if(!Number.isFinite(base) || base <= 0) return "";
-        if(ex.timeBased) return Math.max(5, Math.round((Number(base) * 0.8) / 5) * 5);
+        if(ex.timeBased){
+          const cap = tutCapForExercise(ex);
+          return Math.min(cap, Math.max(5, Math.round((Number(base) * 0.8) / 5) * 5));
+        }
         return roundToStep(Number(base) * 0.8, settings.increment);
       }
 
@@ -1167,12 +1192,13 @@ const DEFAULT_SETTINGS = {
         }
 
         if(ex.timeBased){
+          const cap = tutCapForExercise(ex);
           const lastVal = Number(last.value || 0);
           if(!Number.isFinite(lastVal) || lastVal <= 0) return String(ex.low || ex.high || "");
-          if(last.easy) return String(lastVal + settings.timeIncrementSec);
-          if(last.fail) return String(Math.max(5, lastVal));
-          if(lastVal >= Number(last.goalAtTime || lastVal)) return String(lastVal + settings.timeIncrementSec);
-          return String(lastVal);
+          if(last.easy) return String(Math.min(cap, lastVal + settings.timeIncrementSec));
+          if(last.fail) return String(Math.max(5, Math.min(cap, lastVal)));
+          if(lastVal >= Number(last.goalAtTime || lastVal)) return String(Math.min(cap, lastVal + settings.timeIncrementSec));
+          return String(Math.min(cap, lastVal));
         }
 
         const loggedWeight = Number(last.mainWeight || 0);
@@ -1721,7 +1747,9 @@ const DEFAULT_SETTINGS = {
           card.className = "exerciseCard";
 
           if(ex.timeBased){
-            const val = meaningful(todayLog.value) ? todayLog.value : (goal || ex.low || ex.high || "");
+            const capSec = tutCapForExercise(ex);
+            const seeded = meaningful(todayLog.value) ? todayLog.value : (goal || ex.low || ex.high || "");
+            const val = meaningful(seeded) ? Math.min(capSec, Math.max(1, Number(seeded))) : "";
             card.innerHTML = `
               <div class="exerciseRow">
                 <img src="${ex.img}" alt="${(ex.alt || ex.name).replace(/"/g,'&quot;')}" />
@@ -1735,10 +1763,10 @@ const DEFAULT_SETTINGS = {
                     <div><strong>Today's goal:</strong> ${goal ? `${goal} sec` : "—"}</div>
                   </div>
 
-                  <div class="singleRow">
-                    <label class="small">Time achieved (sec)</label>
-                    <input class="timeInput" type="number" step="1" value="${val}" />
-                  </div>
+                <div class="singleRow">
+                  <label class="small">Time achieved (sec)</label>
+                    <input class="timeInput" type="number" step="1" min="1" max="${capSec}" value="${val}" />
+                </div>
 
                   <div class="miniChecks">
                     <label><input type="checkbox" class="failChk" ${todayLog.fail ? "checked" : ""}> Hit failure</label>
@@ -1772,9 +1800,12 @@ const DEFAULT_SETTINGS = {
             const resetBtn = card.querySelector(".timerReset");
 
             function persistTime(){
+              const raw = Number(timeInput.value || 0);
+              const clamped = Number.isFinite(raw) && raw > 0 ? Math.min(capSec, Math.max(1, Math.round(raw))) : "";
+              if(meaningful(clamped)) timeInput.value = String(clamped);
               setExerciseLog(key, {
                 type:"time",
-                value: timeInput.value || "",
+                value: meaningful(clamped) ? String(clamped) : "",
                 fail: !!failChk.checked,
                 easy: !!easyChk.checked,
                 setWeights: [],
@@ -1785,7 +1816,7 @@ const DEFAULT_SETTINGS = {
             }
 
             function syncTimerGoal(){
-              const goalSec = Number(timeInput.value || goal || ex.low || ex.high || 0);
+              const goalSec = Math.min(capSec, Number(timeInput.value || goal || ex.low || ex.high || 0));
               const st = timerState(key, goalSec);
               display.textContent = fmtTime(st.remaining);
               saveJSON(TIMER_KEY, timers);
@@ -1820,7 +1851,7 @@ const DEFAULT_SETTINGS = {
 
             startBtn.addEventListener("click", () => {
               ensureAudio();
-              const goalSec = Number(timeInput.value || goal || ex.low || ex.high || 0);
+              const goalSec = Math.min(capSec, Number(timeInput.value || goal || ex.low || ex.high || 0));
               const st = timerState(key, goalSec);
               if(st.running) return;
               if(Number(st.remaining || 0) <= 0){
@@ -1840,7 +1871,7 @@ const DEFAULT_SETTINGS = {
             });
 
             resetBtn.addEventListener("click", () => {
-              const goalSec = Number(timeInput.value || goal || ex.low || ex.high || 0);
+              const goalSec = Math.min(capSec, Number(timeInput.value || goal || ex.low || ex.high || 0));
               stopTimer(key);
               timers[key] = { remaining:goalSec, running:false, lastGoal:goalSec, halfDone:false };
               display.textContent = fmtTime(goalSec);
