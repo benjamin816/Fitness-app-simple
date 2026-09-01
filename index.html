@@ -346,7 +346,7 @@
     </div>
 
     <div id="syncStatus" class="footerSync">● syncing</div>
-    <div class="appVersion">Fitness Tracker · v2.5.0</div>
+    <div class="appVersion">Fitness Tracker · v2.5.1</div>
   </div>
 
   <div class="modalBackdrop" id="planBackdrop" aria-hidden="true">
@@ -398,7 +398,7 @@
         </div>
         <div id="wizardControl" class="wizardControl"></div>
         <div id="goalPreview" class="small" style="margin-top:12px"></div>
-        <div class="wizardNav"><button id="wizardBackBtn" class="wizardBack" type="button">← Back</button><button id="wizardNextBtn" class="wizardNext" type="button">Next →</button></div><div class="wizardVersion">Fitness Tracker · v2.5.0</div>
+        <div class="wizardNav"><button id="wizardBackBtn" class="wizardBack" type="button">← Back</button><button id="wizardNextBtn" class="wizardNext" type="button">Next →</button></div><div class="wizardVersion">Fitness Tracker · v2.5.1</div>
         <button id="saveGoalsBtn" class="primary" type="button" style="margin-top:12px">Save shared goals</button>
       </div>
       </div>
@@ -427,15 +427,16 @@
       <div class="hr"></div>
       <div class="baselineBox" id="purgeBox">
         <strong style="color:#b91c1c">Danger zone</strong>
-        <div class="small" style="margin-top:6px">Purge all memory erases all saved history and resets this app to a blank slate.</div>
+        <div class="small" style="margin-top:6px">Reset all personal fitness data while preserving spreadsheet tabs, headers, formulas, and app connections.</div>
         <div class="btns" style="margin-top:10px">
-          <button id="purgeStartBtn" class="danger" type="button">Purge all memory</button>
+          <button id="purgeStartBtn" class="danger" type="button">1. Start personal data reset</button>
         </div>
         <div id="purgeConfirmWrap" style="display:none;margin-top:10px">
-          <label>Type ERASE to enable final purge</label>
-          <input id="purgePhrase" type="text" placeholder="Type ERASE" />
+          <label style="display:flex;gap:9px;align-items:flex-start"><input id="purgeAcknowledge" type="checkbox" style="width:auto;margin-top:3px"> <span>2. I understand this permanently erases weight history, workouts, progression, settings, shared goals, adjustment history, and synced daytime-plan totals.</span></label>
+          <label style="margin-top:10px">3. Type ERASE ALL FITNESS DATA</label>
+          <input id="purgePhrase" type="text" placeholder="ERASE ALL FITNESS DATA" />
           <div class="btns" style="margin-top:10px">
-            <button id="purgeConfirmBtn" class="danger" type="button" disabled>Confirm purge</button>
+            <button id="purgeConfirmBtn" class="danger" type="button" disabled>Permanently erase personal data</button>
             <button id="purgeCancelBtn" type="button">Cancel</button>
           </div>
         </div>
@@ -696,6 +697,7 @@
       const resetSettingsBtn = $("resetSettingsBtn");
       const purgeStartBtn = $("purgeStartBtn");
       const purgeConfirmWrap = $("purgeConfirmWrap");
+      const purgeAcknowledge = $("purgeAcknowledge");
       const purgePhrase = $("purgePhrase");
       const purgeConfirmBtn = $("purgeConfirmBtn");
       const purgeCancelBtn = $("purgeCancelBtn");
@@ -2342,7 +2344,16 @@
       }
 
       async function purgeAllMemory(){
-        if(!confirm("Final confirmation: erase all history and reset this app for a new user?")) return;
+        if(!confirm("Final confirmation: permanently erase all personal Fitness Tracker data from this device and its connected spreadsheet? Spreadsheet structure will remain.")) return;
+        purgeConfirmBtn.disabled=true;
+        try {
+          const result=await cloudPost({ action:"purgeAllData" });
+          if(!result?.ok) throw new Error(result?.error||"Cloud reset failed");
+        } catch(error) {
+          alert(`Nothing was erased locally because the spreadsheet reset failed: ${error.message||error}`);
+          purgeConfirmBtn.disabled=false;
+          return;
+        }
         store = { days:{} };
         timers = {};
         settings = JSON.parse(JSON.stringify(DEFAULT_SETTINGS));
@@ -2351,10 +2362,8 @@
         saveJSON(TIMER_KEY, timers);
         saveJSON(SETTINGS_KEY, settings);
         saveJSON(CLOUD_KEY, cloudState);
-        try {
-          await cloudPost({ action:"purgeAllData" });
-        } catch {}
         purgeConfirmWrap.style.display = "none";
+        purgeAcknowledge.checked = false;
         purgePhrase.value = "";
         purgeConfirmBtn.disabled = true;
         closeModal(settingsBackdrop);
@@ -2366,7 +2375,7 @@
         updateWorkoutOptions();
         syncGoalTogglesFromInputs();
         setSyncStatus("● memory purged");
-        alert("All memory has been purged.");
+        alert("Personal fitness data was erased. Spreadsheet structure and app connections were preserved.");
       }
 
       prevDayBtn.addEventListener("click", () => {
@@ -2503,15 +2512,17 @@
       });
       purgeStartBtn.addEventListener("click", () => {
         purgeConfirmWrap.style.display = "block";
+        purgeAcknowledge.checked = false;
         purgePhrase.value = "";
         purgeConfirmBtn.disabled = true;
         purgePhrase.focus();
       });
-      purgePhrase.addEventListener("input", () => {
-        purgeConfirmBtn.disabled = purgePhrase.value.trim().toUpperCase() !== "ERASE";
-      });
+      function refreshPurgeConfirmation(){purgeConfirmBtn.disabled=!purgeAcknowledge.checked||purgePhrase.value.trim().toUpperCase()!=="ERASE ALL FITNESS DATA";}
+      purgePhrase.addEventListener("input", refreshPurgeConfirmation);
+      purgeAcknowledge.addEventListener("change", refreshPurgeConfirmation);
       purgeCancelBtn.addEventListener("click", () => {
         purgeConfirmWrap.style.display = "none";
+        purgeAcknowledge.checked = false;
         purgePhrase.value = "";
         purgeConfirmBtn.disabled = true;
       });

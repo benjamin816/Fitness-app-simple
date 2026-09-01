@@ -168,6 +168,13 @@ function getHealthGoalsSheet_(){ return ensureSharedSheet_(SHEET_HEALTH_GOALS,HE
 function getPlannedDaytimeSheet_(){ return ensureSharedSheet_(SHEET_PLANNED_DAYTIME,PLANNED_DAYTIME_HEADERS); }
 function getGoalAdjustmentsSheet_(){ return ensureSharedSheet_(SHEET_GOAL_ADJUSTMENTS,GOAL_ADJUSTMENT_HEADERS); }
 
+function purgeSharedHealthData_(){
+  [getHealthGoalsSheet_(),getPlannedDaytimeSheet_(),getGoalAdjustmentsSheet_()].forEach(sheet=>{
+    const last=sheet.getLastRow();
+    if(last>1) sheet.deleteRows(2,last-1);
+  });
+}
+
 function ensureSharedSheet_(name,headers){
   const sheet=ensureSheet_(name,headers);
   const existing=getHeaders_(sheet);
