@@ -886,6 +886,10 @@
         return c;
       }
 
+      function isLongInactive(){
+        return countMeaningfulDaysBack(todayISO(), 30, false) === 0;
+      }
+
       function baselineDataForDate(date){
         return ensureDayRecord(date).baselineData || {};
       }
@@ -1005,12 +1009,9 @@
       }
 
       function updateWorkoutOptions(){
-        if(!settings.freshStartDate){
-          const inactiveBeforeToday = countMeaningfulDaysBack(todayISO(), 30, false) === 0;
-          if(inactiveBeforeToday){
-            settings.freshStartDate = todayISO();
-            saveJSON(SETTINGS_KEY, settings);
-          }
+        if(isLongInactive() && settings.freshStartDate !== todayISO()){
+          settings.freshStartDate = todayISO();
+          saveJSON(SETTINGS_KEY, settings);
         }
         const current = workoutSelect.value;
         const needsBodyweight = freshStartNeedsBodyweight();
@@ -1498,6 +1499,8 @@
           }
         } catch {
           setSyncStatus("● sync failed");
+        } finally {
+          maybeOpenStarterGoals();
         }
       }
 
@@ -1620,7 +1623,7 @@
             const s = init.settings || {};
             if(s.weight_increment_lb) settings.increment = Number(s.weight_increment_lb);
             if(s.time_increment_sec) settings.timeIncrementSec = Number(s.time_increment_sec);
-            if(init.shared?.goal) settings.sharedGoal = init.shared.goal;
+            if(init.shared && Object.prototype.hasOwnProperty.call(init.shared,"goal")) settings.sharedGoal = init.shared.goal || null;
             saveJSON(SETTINGS_KEY, settings);
           }
           const start = addDaysISO(todayISO(), -180);
@@ -1632,7 +1635,7 @@
             replaceLocalRangeWithCloud(start, end, range);
             const shared = await cloudGet("getSharedState");
             if(shared?.ok && shared.shared){
-              if(shared.shared.goal) settings.sharedGoal = shared.shared.goal;
+              if(Object.prototype.hasOwnProperty.call(shared.shared,"goal")) settings.sharedGoal = shared.shared.goal || null;
               const plans = await cloudGet("getPlannedDaytime", { start, end });
               plannedDaytime = Object.fromEntries((plans?.rows||[]).map(row=>[String(row.date),row]));
               saveJSON(SETTINGS_KEY,settings);
@@ -2117,6 +2120,14 @@
         purgePhrase.value = "";
         purgeConfirmBtn.disabled = true;
         openModal(settingsBackdrop);
+      }
+
+      let starterGoalPromptShown = false;
+      function maybeOpenStarterGoals(){
+        if(starterGoalPromptShown || (settings.sharedGoal && !isLongInactive())) return;
+        starterGoalPromptShown = true;
+        openSettings();
+        goalPreview.insertAdjacentHTML("beforebegin", `<div class="baselineBox" style="background:#eee9ff;border-color:#cfc2ff"><strong>🎯 ${settings.sharedGoal ? "Welcome back — refresh your goals" : "Let's set your starting goals"}</strong><div class="small" style="margin-top:5px">${settings.sharedGoal ? "It has been 30+ days since your last log. Confirm these still fit before restarting." : "This one-time setup powers both Fitness Tracker and Morning Macros."}</div></div>`);
       }
 
       async function purgeAllMemory(){
