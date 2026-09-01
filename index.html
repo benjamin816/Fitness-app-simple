@@ -242,9 +242,15 @@
     #settingsBackdrop.goalWizardMode .wizardBack{background:rgba(255,255,255,.16);border-color:rgba(255,255,255,.3);color:#fff}
     #settingsBackdrop.forcedWizard #wizardCloseBtn{display:none}
     .wheelValue{text-align:center;font-size:42px;font-weight:950;margin:8px 0 14px;text-shadow:0 8px 22px rgba(24,14,77,.22)}
-    .wheelRange{width:min(560px,100%);display:block;margin:0 auto;appearance:none;height:70px;background:repeating-linear-gradient(90deg,rgba(255,255,255,.35) 0 2px,transparent 2px 18px);border:0;outline:0}
-    .wheelRange::-webkit-slider-thumb{appearance:none;width:8px;height:76px;border-radius:6px;background:#fff;box-shadow:0 4px 18px rgba(25,15,75,.25)}
-    .wheelRange::-moz-range-thumb{width:8px;height:76px;border:0;border-radius:6px;background:#fff}
+    .wheelRail{position:relative;width:min(560px,100%);height:86px;margin:0 auto;overflow:hidden;mask-image:linear-gradient(90deg,transparent,#000 16%,#000 84%,transparent)}
+    .wheelScroller{height:100%;overflow-x:auto;overflow-y:hidden;padding:0 calc(50% - 9px);scroll-snap-type:x mandatory;scrollbar-width:none;touch-action:pan-x;overscroll-behavior-x:contain;cursor:grab}
+    .wheelScroller:active{cursor:grabbing}.wheelScroller::-webkit-scrollbar{display:none}
+    .wheelTicks{display:flex;height:100%;width:max-content;align-items:center}
+    .wheelTick{flex:0 0 18px;height:32px;border-left:2px solid rgba(255,255,255,.38);scroll-snap-align:center;box-sizing:border-box}
+    .wheelTick:nth-child(5n+1){height:52px;border-left-color:rgba(255,255,255,.7)}
+    .wheelMarker{position:absolute;z-index:2;left:50%;top:5px;bottom:5px;width:6px;transform:translateX(-50%);border-radius:999px;background:#fff;box-shadow:0 5px 20px rgba(25,15,75,.35);pointer-events:none}
+    .wheelScroller:focus-visible{outline:3px solid rgba(255,255,255,.8);outline-offset:-4px;border-radius:16px}
+    .wizardVersion{text-align:center;margin-top:8px;font-size:10px;font-weight:850;letter-spacing:.5px;color:rgba(255,255,255,.68)}
     .choiceStack{display:grid;gap:10px;width:min(590px,100%);margin:0 auto}.choiceCard{display:block;width:100%;text-align:left;padding:14px 16px;background:rgba(255,255,255,.14);border:2px solid rgba(255,255,255,.22);color:#fff;border-radius:18px;box-shadow:none}.choiceCard strong{display:block;font-size:16px}.choiceCard small{display:block;margin-top:5px;color:rgba(255,255,255,.78);font-weight:600;line-height:1.35}.choiceCard.selected{background:#fff;color:#302277;border-color:#fff;transform:scale(1.01)}.choiceCard.selected small{color:#665a8f}
     .bfChoices{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;width:min(590px,100%);margin:0 auto;padding:2px}.bfCard{min-width:0;padding:6px;border:2px solid rgba(255,255,255,.22);border-radius:16px;background:rgba(255,255,255,.13);color:#fff}.bfCard.selected{background:#fff;color:#322579;border-color:#fff}.bfCrop{height:145px;overflow:hidden;border-radius:11px;position:relative;background:#9d6448}.bfCrop img{position:absolute;top:0;height:100%;width:500%;max-width:none;object-fit:cover}.bfCard strong{display:block;text-align:center;margin:7px 0 2px;font-size:13px}.bfCard small{display:block;text-align:center;opacity:.8;font-size:10px}.referenceNote{text-align:center;color:rgba(255,255,255,.78);font-size:11px;margin-top:7px}.skipEstimate{display:block;margin:8px auto 0;background:transparent;border:0;color:rgba(255,255,255,.9);text-decoration:underline;box-shadow:none;padding:6px}
     .sexGrid{display:grid;grid-template-columns:1fr 1fr;gap:14px;width:min(560px,100%);margin:0 auto}.sexCard{padding:10px;border:2px solid rgba(255,255,255,.24);border-radius:22px;background:rgba(255,255,255,.13);color:#fff}.sexCard.selected{background:#fff;color:#302277;border-color:#fff}.sexVisual{height:230px;overflow:hidden;position:relative;border-radius:15px;background:#9d6448}.sexVisual img{position:absolute;top:0;height:100%;width:500%;max-width:none;object-fit:cover;left:-200%}.sexCard strong{display:block;font-size:19px;margin-top:9px;text-align:center}
@@ -339,7 +345,7 @@
     </div>
 
     <div id="syncStatus" class="footerSync">● syncing</div>
-    <div class="appVersion">Fitness Tracker · v2.4.0</div>
+    <div class="appVersion">Fitness Tracker · v2.4.1</div>
   </div>
 
   <div class="modalBackdrop" id="planBackdrop" aria-hidden="true">
@@ -389,7 +395,7 @@
         </div>
         <div id="wizardControl" class="wizardControl"></div>
         <div id="goalPreview" class="small" style="margin-top:12px"></div>
-        <div class="wizardNav"><button id="wizardBackBtn" class="wizardBack" type="button">← Back</button><button id="wizardNextBtn" class="wizardNext" type="button">Next →</button></div>
+        <div class="wizardNav"><button id="wizardBackBtn" class="wizardBack" type="button">← Back</button><button id="wizardNextBtn" class="wizardNext" type="button">Next →</button></div><div class="wizardVersion">Fitness Tracker · v2.4.1</div>
         <button id="saveGoalsBtn" class="primary" type="button" style="margin-top:12px">Save shared goals</button>
       </div>
       </div>
@@ -2193,8 +2199,14 @@
       function choiceButton(value,title,description,selected){return `<button type="button" class="choiceCard${selected?" selected":""}" data-value="${value}"><strong>${title}</strong><small>${description}</small></button>`;}
       function setWizardNextReady(ready){wizardNextBtn.hidden=!ready;}
       function wheelControl(type,min,max,step,value,formatter){
-        wizardControl.innerHTML=`<div class="wheelValue" id="wheelValue">${formatter(value)}</div><input class="wheelRange" id="wizardWheel" type="range" min="${min}" max="${max}" step="${step}" value="${value}" aria-label="${type}">`;
-        const wheel=$("wizardWheel"); wheel.oninput=()=>{const v=Number(wheel.value);$("wheelValue").textContent=formatter(v);if(type==="age")goalAge.value=v;if(type==="height")goalHeight.value=v;if(type==="weight")goalWeight.value=v;refreshGoalPreview();};
+        const values=[];for(let v=min;v<=max+.0001;v+=step)values.push(Number(v.toFixed(3)));
+        wizardControl.innerHTML=`<div class="wheelValue" id="wheelValue">${formatter(value)}</div><div class="wheelRail"><div class="wheelScroller" id="wizardWheel" role="slider" tabindex="0" aria-label="${type}" aria-valuemin="${min}" aria-valuemax="${max}" aria-valuenow="${value}"><div class="wheelTicks">${values.map(()=>'<span class="wheelTick"></span>').join("")}</div></div><span class="wheelMarker" aria-hidden="true"></span></div>`;
+        const wheel=$("wizardWheel"),tickWidth=18;let lastIndex=Math.round((value-min)/step),frame=0;
+        const applyIndex=index=>{index=Math.max(0,Math.min(values.length-1,index));const v=values[index];wheel.setAttribute("aria-valuenow",v);$("wheelValue").textContent=formatter(v);if(type==="age")goalAge.value=v;if(type==="height")goalHeight.value=v;if(type==="weight")goalWeight.value=v;refreshGoalPreview();if(index!==lastIndex){lastIndex=index;if(navigator.vibrate)navigator.vibrate(6);}};
+        wheel.addEventListener("scroll",()=>{cancelAnimationFrame(frame);frame=requestAnimationFrame(()=>applyIndex(Math.round(wheel.scrollLeft/tickWidth)));},{passive:true});
+        wheel.addEventListener("wheel",event=>{if(Math.abs(event.deltaY)>Math.abs(event.deltaX)){event.preventDefault();wheel.scrollLeft+=event.deltaY;}},{passive:false});
+        wheel.addEventListener("keydown",event=>{if(event.key!=="ArrowLeft"&&event.key!=="ArrowRight")return;event.preventDefault();const direction=event.key==="ArrowRight"?1:-1;wheel.scrollTo({left:(lastIndex+direction)*tickWidth,behavior:"smooth"});});
+        requestAnimationFrame(()=>{wheel.scrollLeft=lastIndex*tickWidth;applyIndex(lastIndex);});
         setWizardNextReady(true);
       }
 
@@ -2211,7 +2223,7 @@
 
       function renderWizardControl(step){
         const weight=Number(goalWeight.value||160);
-        if(step==="age"){const v=Number(goalAge.value||35);goalAge.value=v;wheelControl("age",18,90,1,v,v=>`${v} years`);return;}
+        if(step==="age"){const v=Number(goalAge.value||25);goalAge.value=v;wheelControl("age",18,90,1,v,v=>`${v} years`);return;}
         if(step==="sex"){
           wizardControl.innerHTML=`<div class="sexGrid"><button type="button" class="sexCard${goalSex.value==="male"&&wizardTouched.sex?" selected":""}" data-value="male"><div class="sexVisual"><img src="assets/body-fat-male.png" alt="Man illustration"></div><strong>Man</strong></button><button type="button" class="sexCard${goalSex.value==="female"&&wizardTouched.sex?" selected":""}" data-value="female"><div class="sexVisual"><img src="assets/body-fat-female.png" alt="Woman illustration"></div><strong>Woman</strong></button></div>`;
           wizardControl.querySelectorAll(".sexCard").forEach(btn=>btn.onclick=()=>{goalSex.value=btn.dataset.value;wizardTouched.sex=true;if(!wizardTouched.height){goalHeight.value=btn.dataset.value==="male"?68:64;}renderWizardControl(step);});setWizardNextReady(!!wizardTouched.sex);return;
