@@ -6,14 +6,16 @@
   <title>Lift + Daily Goals Tracker</title>
   <style>
     :root{
-      --bg:#f6f7fb;
+      --bg:#f4f2ff;
       --card:#fff;
       --text:#111827;
       --muted:#6b7280;
       --line:#e5e7eb;
-      --shadow:0 10px 25px rgba(17,24,39,.08);
-      --radius:16px;
-      --accent:#111827;
+      --shadow:0 14px 35px rgba(64,45,145,.11);
+      --radius:22px;
+      --accent:#6d4aff;
+      --accent2:#12b8a6;
+      --sun:#ffb020;
       --danger:#b91c1c;
       --warn:#b45309;
       --warnBg:#fffbeb;
@@ -24,18 +26,18 @@
     body{
       margin:0;
       font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;
-      background:var(--bg);
+      background:linear-gradient(145deg,#f5f2ff 0%,#effbfa 55%,#fff7e7 100%);
+      min-height:100vh;
       color:var(--text);
     }
-    .wrap{max-width:1080px;margin:22px auto 80px;padding:0 16px}
-    header{display:flex;gap:12px;align-items:flex-end;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap}
-    h1{margin:0;font-size:20px}
+    .wrap{max-width:780px;margin:20px auto 80px;padding:0 16px}
+    header{display:flex;gap:12px;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap}
+    h1{margin:0;font-size:24px;letter-spacing:-.6px}
     .sub{margin:6px 0 0;color:var(--muted);font-size:13px}
-    .row{display:grid;grid-template-columns:1.05fr .95fr;gap:16px}
-    @media (max-width:900px){.row{grid-template-columns:1fr}}
+    .row{display:block}
     .card{
       background:var(--card);
-      border:1px solid var(--line);
+      border:1px solid rgba(109,74,255,.12);
       border-radius:var(--radius);
       box-shadow:var(--shadow);
       padding:16px;
@@ -64,10 +66,21 @@
       cursor:pointer;
       font-weight:800;
     }
-    button.primary{background:var(--accent);color:#fff;border-color:var(--accent)}
+    button.primary{background:linear-gradient(135deg,var(--accent),#8a68ff);color:#fff;border-color:transparent;box-shadow:0 8px 18px rgba(109,74,255,.25)}
     button.danger{border-color:#fecaca;color:var(--danger)}
     button.icon{padding:10px 11px;font-weight:900}
     button:disabled{opacity:.45;cursor:not-allowed}
+    .topActions{margin-top:0;align-items:center}
+    .appNav{position:sticky;top:10px;z-index:20;display:grid;grid-template-columns:repeat(3,1fr);gap:8px;padding:7px;margin-bottom:14px;background:rgba(255,255,255,.86);border:1px solid rgba(109,74,255,.13);border-radius:18px;box-shadow:var(--shadow);backdrop-filter:blur(14px)}
+    .navBtn{border:0;background:transparent;color:var(--muted);padding:11px 8px}
+    .navBtn.active{color:#fff;background:linear-gradient(135deg,var(--accent),#8a68ff);box-shadow:0 7px 16px rgba(109,74,255,.24)}
+    .appPanel{display:none}
+    .appPanel.active{display:block;animation:panelIn .16s ease-out}
+    @keyframes panelIn{from{opacity:.4;transform:translateY(4px)}to{opacity:1;transform:none}}
+    .sectionEyebrow{display:inline-flex;padding:6px 10px;border-radius:999px;background:#eee9ff;color:#5b3bd7;font-size:11px;font-weight:900;text-transform:uppercase;letter-spacing:.6px;margin-bottom:10px}
+    .todayCard{border-top:5px solid var(--accent)}
+    .progressCard{border-top:5px solid var(--accent2)}
+    .historyCard{border-top:5px solid var(--sun)}
     .small{font-size:12px;color:var(--muted)}
     .hr{height:1px;background:var(--line);margin:14px 0}
     .pill{
@@ -116,6 +129,9 @@
     .dashBox,.avgBox,.baselineBox{
       border:1px solid var(--line);border-radius:14px;padding:12px;background:#fff;margin-bottom:12px
     }
+    #dailyPlanSummary{background:linear-gradient(135deg,#eee9ff,#f8f6ff);border-color:#cfc2ff}
+    #progressCheck{background:linear-gradient(135deg,#e7fbf8,#f7fffd);border-color:#a3e8df}
+    #eveningEstimate{background:linear-gradient(135deg,#fff5dd,#fffaf0);border-color:#ffd88a}
     .freshLock{
       border-color:#fecaca;
       background:#fef2f2;
@@ -189,17 +205,19 @@
     .workoutNav{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:14px}
     .workoutNav .primary{margin-left:auto}
     .progressDecision{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
-    @media(max-width:640px){.goalForm{grid-template-columns:1fr}.modal{padding:14px}.exerciseRow{display:block}.exerciseRow img,.exerciseRow video{width:100%;height:180px;margin-bottom:12px}}
+    details.utility{margin-top:16px;color:var(--muted);font-size:12px}
+    details.utility summary{cursor:pointer;font-weight:800}
+    @media(max-width:640px){.goalForm{grid-template-columns:1fr}.modal{padding:14px}.exerciseRow{display:block}.exerciseRow img,.exerciseRow video{width:100%;height:180px;margin-bottom:12px}.sub{display:none}.topActions{width:100%;justify-content:center}.wrap{margin-top:12px}.card{padding:14px}}
   </style>
 </head>
 <body>
   <div class="wrap">
     <header>
       <div>
-        <h1>Lift + Daily Goals Tracker</h1>
-        <div class="sub">Auto-saves every change. Local first, Google Sheets sync second. Baseline mode kicks in after 30 inactive days.</div>
+        <h1>Fitness Tracker</h1>
+        <div class="sub">Weight. Progress. Workout.</div>
       </div>
-      <div class="btns">
+      <div class="btns topActions">
         <button id="prevDayBtn" type="button">← Prev</button>
         <span class="pill"><span class="dateLabel" id="dateLabel">—</span></span>
         <button id="nextDayBtn" type="button">Next →</button>
@@ -208,9 +226,15 @@
       </div>
     </header>
 
+    <nav class="appNav" aria-label="Fitness sections">
+      <button class="navBtn active" type="button" data-panel="todayPanel">☀️ Today</button>
+      <button class="navBtn" type="button" data-panel="progressPanel">📈 Progress</button>
+      <button class="navBtn" type="button" data-panel="historyPanel">🗓 History</button>
+    </nav>
+
     <div class="row">
-      <div class="card">
-        <h2>Daily</h2>
+      <section class="card todayCard appPanel active" id="todayPanel">
+        <span class="sectionEyebrow">Today</span>
 
         <div class="inline">
           <div>
@@ -223,7 +247,7 @@
           </div>
         </div>
 
-        <div class="small" id="workoutDesc" style="margin-top:8px">Pick a workout day to track that day's plan.</div>
+        <div class="small" id="workoutDesc" style="margin-top:8px">Choose a workout.</div>
         <div class="btns" style="margin-top:10px">
           <button id="openPlanBtn" class="primary" type="button" disabled style="display:none">Start Workout</button>
         </div>
@@ -231,17 +255,13 @@
         <div id="baselineHint" class="baselineBox" style="display:none">
           <strong>Fresh start mode</strong>
           <div class="small" style="margin-top:6px">
-            No meaningful logged days were found in the last 30 days, so the app is in fresh start mode.
-            Enter your bodyweight first. Until bodyweight is entered, all other inputs stay locked.
-            Then choose <strong>Baseline Test</strong> and log one controlled baseline result per exercise.
-            Future starting goals will use about 80% of those baseline results.
+            Enter your weight, then complete one baseline workout. We'll handle the starting targets.
           </div>
         </div>
 
         <div class="hr"></div>
-        <h2>Today at a glance</h2>
+        <h2>Your targets</h2>
         <div id="dailyPlanSummary" class="baselineBox">Complete Set My Goals to connect your calorie and protein targets.</div>
-        <div class="small" style="margin-top:8px">Morning Macros supplies planned daytime food. Dinner and evening intake are assessed from your multi-week weight trend—no food reconstruction required.</div>
 
         <div hidden aria-hidden="true">
           <input id="steps"><input id="cals"><input id="protein">
@@ -251,30 +271,25 @@
           <span id="stressHint"></span><span id="energyHint"></span><button id="stressClear"></button><button id="energyClear"></button>
         </div>
 
-        <div class="hr"></div>
-        <div class="btns">
-          <button id="copyBtn" type="button">Copy backup</button>
-          <button id="resetBtn" class="danger" type="button">Reset day</button>
-        </div>
-      </div>
+        <details class="utility"><summary>More options</summary><div class="btns"><button id="copyBtn" type="button">Copy backup</button><button id="resetBtn" class="danger" type="button">Reset day</button></div></details>
+      </section>
 
-      <div class="card">
-        <h2>Progress dashboard</h2>
+      <section class="card progressCard appPanel" id="progressPanel">
+        <span class="sectionEyebrow">Progress</span>
         <div id="progressCheck" class="baselineBox" style="margin-bottom:12px"></div>
         <div id="eveningEstimate" class="baselineBox" style="margin-bottom:12px"></div>
         <div class="dashboardGrid" id="dashboardGrid"></div>
+      </section>
 
-        <div class="hr"></div>
-        <h2>History (latest first)</h2>
-        <div class="small" style="margin-bottom:10px">Tap “Load” to bring a day back.</div>
-
+      <section class="card historyCard appPanel" id="historyPanel">
+        <span class="sectionEyebrow">History</span>
         <div class="avgBox" id="avgBox" style="display:none">
           <div class="avgTitle" id="avgTitle">7-weigh-in average: —</div>
-          <div class="avgMeta">Uses 7 weigh-ins inside a 10-day window ending on the day you’re viewing.</div>
+          <div class="avgMeta">Your smoothed weight trend.</div>
         </div>
 
         <div class="historyList" id="historyList"></div>
-      </div>
+      </section>
     </div>
 
     <div id="syncStatus" class="footerSync">● syncing</div>
@@ -733,13 +748,15 @@
       function refreshGoalTexts(){
         const goal = settings.sharedGoal;
         if(!goal){
-          dailyPlanSummary.innerHTML = "<strong>Set My Goals</strong><div class='small' style='margin-top:6px'>Open Settings to establish the shared calorie and protein targets.</div>";
+          dailyPlanSummary.style.cursor="pointer";
+          dailyPlanSummary.innerHTML = "<strong>🎯 Set My Goals →</strong><div class='small' style='margin-top:6px'>One-time setup for calories and protein.</div>";
           return;
         }
+        dailyPlanSummary.style.cursor="default";
         const dayPlan = plannedDaytime[selectedDate];
         const planned = Number(dayPlan?.planned_calories || 0);
         const plannedProtein = Number(dayPlan?.planned_protein_g || 0);
-        dailyPlanSummary.innerHTML = `<strong>${Number(goal.calorie_target).toLocaleString()} calories · ${Number(goal.protein_min_g)}g protein</strong><div class="small" style="margin-top:6px">${dayPlan ? `Morning Macros planned ${planned} calories and ${plannedProtein}g protein. Intended evening budget: about ${Math.max(0,Number(goal.calorie_target)-planned).toLocaleString()} calories.` : "No Morning Macros daytime plan is synced for this date yet."}</div>`;
+        dailyPlanSummary.innerHTML = `<strong>🎯 ${Number(goal.calorie_target).toLocaleString()} cal · ${Number(goal.protein_min_g)}g protein</strong><div class="small" style="margin-top:6px">${dayPlan ? `Daytime: ${planned} cal · ${plannedProtein}g &nbsp; | &nbsp; Evening: ~${Math.max(0,Number(goal.calorie_target)-planned).toLocaleString()} cal` : "No daytime plan synced."}</div>`;
       }
 
       function calculatedGoalFromForm(){
@@ -786,23 +803,23 @@
 
       function renderAdaptiveCoaching(){
         const goal=settings.sharedGoal, trend=weightTrendAssessment();
-        if(!goal){ progressCheck.innerHTML="<strong>Progress check</strong><div class='small'>Complete Set My Goals first.</div>"; eveningEstimate.innerHTML="<strong>Evening intake estimate</strong><div class='small'>Available after goals and a multi-week weight trend exist.</div>"; return; }
-        if(!trend){ progressCheck.innerHTML="<strong>Progress check</strong><div class='small'>Keep weighing in. A recommendation waits for at least two useful weeks of trend data.</div>"; eveningEstimate.innerHTML="<strong>Evening intake estimate</strong><div class='small'>Not enough trend data yet. This estimate never uses a single weigh-in.</div>"; return; }
+        if(!goal){ progressCheck.innerHTML="<strong>📈 Progress check</strong><div class='small'>Set your goals first.</div>"; eveningEstimate.innerHTML="<strong>🌙 Evening estimate</strong><div class='small'>Unlocks after a few weeks of weigh-ins.</div>"; return; }
+        if(!trend){ progressCheck.innerHTML="<strong>📈 Building your trend</strong><div class='small'>Keep weighing in. Coaching starts after about two weeks.</div>"; eveningEstimate.innerHTML="<strong>🌙 Evening estimate</strong><div class='small'>Waiting for enough trend data.</div>"; return; }
         const target=Number(goal.target_loss_pct_week), actual=trend.actual, current=Number(goal.calorie_target);
-        let rec=current, message="Your trend is reasonably close to target. No change recommended.";
-        if(actual<target-.2){rec=Math.max(1200,current-125);message=`Progress is consistently slower than target. Consider ${current.toLocaleString()} → ${rec.toLocaleString()} calories.`;}
-        else if(actual>target+.2){rec=current+125;message=`Progress is consistently faster than target. Consider ${current.toLocaleString()} → ${rec.toLocaleString()} calories.`;}
-        progressCheck.innerHTML=`<strong>Progress check</strong><div class="small" style="margin-top:6px">Target: -${target.toFixed(2)}% / week · Actual: -${actual.toFixed(2)}% / week</div><div style="margin-top:8px">${message}</div>${rec!==current?`<div class="progressDecision"><button class="primary" id="acceptAdjustment" type="button">Accept adjustment</button><button id="keepAdjustment" type="button">Keep current goal</button></div>`:""}`;
+        let rec=current, message="On track — no change.";
+        if(actual<target-.2){rec=Math.max(1200,current-125);message=`A little slow: ${current.toLocaleString()} → ${rec.toLocaleString()} cal`;}
+        else if(actual>target+.2){rec=current+125;message=`A little fast: ${current.toLocaleString()} → ${rec.toLocaleString()} cal`;}
+        progressCheck.innerHTML=`<strong>📈 ${message}</strong><div class="small" style="margin-top:6px">Target -${target.toFixed(2)}% · Actual -${actual.toFixed(2)}% / week</div>${rec!==current?`<div class="progressDecision"><button class="primary" id="acceptAdjustment" type="button">Accept</button><button id="keepAdjustment" type="button">Keep goal</button></div>`:""}`;
         if(rec!==current){
           $("acceptAdjustment").onclick=()=>decideAdjustment(true,rec,trend);
           $("keepAdjustment").onclick=()=>decideAdjustment(false,rec,trend);
         }
         const dayPlan=plannedDaytime[selectedDate], weight=trend.latestAvg;
-        if(!dayPlan){eveningEstimate.innerHTML="<strong>Evening intake estimate</strong><div class='small'>Sync a Morning Macros plan for this date to calculate the intended evening budget.</div>";return;}
+        if(!dayPlan){eveningEstimate.innerHTML="<strong>🌙 Evening estimate</strong><div class='small'>Waiting for a Morning Macros plan.</div>";return;}
         const deviation=Math.round((((target-actual)/100)*weight*3500/7)/50)*50;
         const intended=Math.max(0,current-Number(dayPlan.planned_calories||0));
-        const label=Math.abs(deviation)<100?"about right":deviation>0?`roughly ${Math.abs(deviation)} calories/day above target on average`:`roughly ${Math.abs(deviation)} calories/day below target on average`;
-        eveningEstimate.innerHTML=`<strong>Evening intake estimate</strong><div class="small" style="margin-top:6px">Intended evening budget: about ${intended.toLocaleString()} calories</div><div style="margin-top:8px">Your evening intake appears <strong>${label}</strong>.</div><div class="small" style="margin-top:6px">Estimate only, based on a ${trend.days}-day weight trend and the assumption that the Morning Macros daytime plan was followed. Water, glycogen, activity, and measurement noise can affect it.</div>`;
+        const label=Math.abs(deviation)<100?"About right ✓":deviation>0?`~${Math.abs(deviation)} cal/day high`:`~${Math.abs(deviation)} cal/day low`;
+        eveningEstimate.innerHTML=`<strong>🌙 ${label}</strong><div class="small" style="margin-top:6px">Evening budget ~${intended.toLocaleString()} cal · ${trend.days}-day estimate</div>`;
       }
 
       async function decideAdjustment(accept,recommended,trend){
@@ -2143,7 +2160,13 @@
         if(selectedDate === t) return;
         setSelectedDate(t);
       });
+      document.querySelectorAll(".navBtn").forEach(btn => btn.addEventListener("click", () => {
+        document.querySelectorAll(".navBtn").forEach(item => item.classList.toggle("active", item === btn));
+        document.querySelectorAll(".appPanel").forEach(panel => panel.classList.toggle("active", panel.id === btn.dataset.panel));
+        window.scrollTo({top:0,behavior:"smooth"});
+      }));
       settingsBtn.addEventListener("click", openSettings);
+      dailyPlanSummary.addEventListener("click", () => { if(!settings.sharedGoal) openSettings(); });
       saveGoalsBtn.addEventListener("click", async () => {
         const goal=calculatedGoalFromForm();
         if(!goal){ alert("Enter age, height, and current weight first."); return; }
