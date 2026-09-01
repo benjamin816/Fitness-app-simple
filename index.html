@@ -346,7 +346,7 @@
     </div>
 
     <div id="syncStatus" class="footerSync">● syncing</div>
-    <div class="appVersion">Fitness Tracker · v2.5.1</div>
+    <div class="appVersion">Fitness Tracker · v2.5.2</div>
   </div>
 
   <div class="modalBackdrop" id="planBackdrop" aria-hidden="true">
@@ -398,7 +398,7 @@
         </div>
         <div id="wizardControl" class="wizardControl"></div>
         <div id="goalPreview" class="small" style="margin-top:12px"></div>
-        <div class="wizardNav"><button id="wizardBackBtn" class="wizardBack" type="button">← Back</button><button id="wizardNextBtn" class="wizardNext" type="button">Next →</button></div><div class="wizardVersion">Fitness Tracker · v2.5.1</div>
+        <div class="wizardNav"><button id="wizardBackBtn" class="wizardBack" type="button">← Back</button><button id="wizardNextBtn" class="wizardNext" type="button">Next →</button></div><div class="wizardVersion">Fitness Tracker · v2.5.2</div>
         <button id="saveGoalsBtn" class="primary" type="button" style="margin-top:12px">Save shared goals</button>
       </div>
       </div>
@@ -461,10 +461,11 @@
         sharedGoal: null
       };
 
-      const STORE_KEY = "ben_tracker_v11_store";
-      const SETTINGS_KEY = "ben_tracker_v11_settings";
-      const TIMER_KEY = "ben_tracker_v11_timers";
-      const CLOUD_KEY = "ben_tracker_v11_cloud";
+      ["ben_tracker_v11_store","ben_tracker_v11_settings","ben_tracker_v11_timers","ben_tracker_v11_cloud"].forEach(key=>localStorage.removeItem(key));
+      const STORE_KEY = "ben_tracker_v12_store";
+      const SETTINGS_KEY = "ben_tracker_v12_settings";
+      const TIMER_KEY = "ben_tracker_v12_timers";
+      const CLOUD_KEY = "ben_tracker_v12_cloud";
 
       const $ = (id) => document.getElementById(id);
 
