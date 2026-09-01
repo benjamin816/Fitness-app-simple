@@ -203,8 +203,6 @@
     .goalForm label{display:grid;gap:6px}
     .goalForm input,.goalForm select{width:100%}
     #settingsBackdrop:not(.goalWizardMode) .goalSetupBox .goalForm,#settingsBackdrop:not(.goalWizardMode) .goalSetupBox #goalPreview,#settingsBackdrop:not(.goalWizardMode) .goalSetupBox #saveGoalsBtn{display:none}
-    #launchGoalWizardBtn{margin-top:8px}
-    #settingsBackdrop.goalWizardMode #launchGoalWizardBtn{display:none}
     #settingsBackdrop.goalWizardMode{padding:0;background:#6546e8}
     #settingsBackdrop.goalWizardMode .modal{width:100%;height:100vh;max-height:none;border:0;border-radius:0;padding:0;background:linear-gradient(145deg,#6546e8,#8b68ff);color:#fff;overflow:auto;transition:background .45s ease}
     #settingsBackdrop.goalWizardMode.step-1 .modal{background:linear-gradient(145deg,#0fa99a,#46d2c2)}
@@ -240,6 +238,7 @@
     #settingsBackdrop.goalWizardMode.wizardFinal #saveGoalsBtn{display:block}
     #settingsBackdrop.goalWizardMode.wizardFinal .wizardNext{display:none}
     #settingsBackdrop.goalWizardMode .wizardBack{background:rgba(255,255,255,.16);border-color:rgba(255,255,255,.3);color:#fff}
+    #settingsBackdrop.forcedWizard #wizardCloseBtn{display:none}
     .workoutPager{display:grid;gap:14px}
     .workoutNav{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:14px}
     .workoutNav .primary{margin-left:auto}
@@ -291,16 +290,11 @@
           <button id="openPlanBtn" class="primary" type="button" disabled style="display:none">Start Workout</button>
         </div>
 
-        <div id="baselineHint" class="baselineBox" style="display:none">
-          <strong>Fresh start mode</strong>
-          <div class="small" style="margin-top:6px">
-            Enter your weight, then complete one baseline workout. We'll handle the starting targets.
-          </div>
-        </div>
+        <div id="baselineHint" hidden></div>
 
         <div class="hr"></div>
         <h2>Your targets</h2>
-        <div id="dailyPlanSummary" class="baselineBox">Complete Set My Goals to connect your calorie and protein targets.</div>
+        <div id="dailyPlanSummary" class="baselineBox"></div>
 
         <div hidden aria-hidden="true">
           <input id="steps"><input id="cals"><input id="protein">
@@ -332,7 +326,7 @@
     </div>
 
     <div id="syncStatus" class="footerSync">● syncing</div>
-    <div class="appVersion">Fitness Tracker · v2.1.0</div>
+    <div class="appVersion">Fitness Tracker · v2.2.0</div>
   </div>
 
   <div class="modalBackdrop" id="planBackdrop" aria-hidden="true">
@@ -369,7 +363,6 @@
       <div class="baselineBox goalSetupBox">
         <strong>Set My Goals</strong>
         <div class="small goalSetupIntro" style="margin:6px 0 12px">Fitness Tracker owns these shared targets. Morning Macros reads them automatically.</div>
-        <button id="launchGoalWizardBtn" class="primary" type="button">Open goal setup →</button>
         <div class="goalForm">
           <label>Age<input id="goalAge" type="number" min="18" max="100"></label>
           <label>Sex<select id="goalSex"><option value="male">Male</option><option value="female">Female</option></select></label>
@@ -666,7 +659,7 @@
 
       const settingsBackdrop = $("settingsBackdrop");
       const closeSettingsBtn = $("closeSettingsBtn");
-      const launchGoalWizardBtn = $("launchGoalWizardBtn"), wizardCloseBtn = $("wizardCloseBtn");
+      const wizardCloseBtn = $("wizardCloseBtn");
       const wizardBackBtn = $("wizardBackBtn"), wizardNextBtn = $("wizardNextBtn");
       const wizardArt = $("wizardArt"), wizardTitle = $("wizardTitle"), wizardPrompt = $("wizardPrompt"), wizardProgressFill = $("wizardProgressFill");
       const setStepsGoal = $("setStepsGoal");
@@ -798,8 +791,8 @@
       function refreshGoalTexts(){
         const goal = settings.sharedGoal;
         if(!goal){
-          dailyPlanSummary.style.cursor="pointer";
-          dailyPlanSummary.innerHTML = "<strong>🎯 Set My Goals →</strong><div class='small' style='margin-top:6px'>One-time setup for calories and protein.</div>";
+          dailyPlanSummary.style.cursor="default";
+          dailyPlanSummary.innerHTML = "";
           return;
         }
         dailyPlanSummary.style.cursor="default";
@@ -1704,7 +1697,8 @@
         } catch {
           setSyncStatus("● sync failed");
         } finally {
-          maybeOpenStarterGoals();
+          if(needsForcedGoalSetup()) maybeOpenStarterGoals();
+          else if(forcedGoalSetup){ forcedGoalSetup=false; exitGoalWizard(); }
         }
       }
 
@@ -2165,6 +2159,7 @@
         {icon:"📉",title:"Choose your pace",prompt:"Moderate is the recommended starting point."}
       ];
       let wizardStep = 0;
+      let forcedGoalSetup = false;
 
       function renderGoalWizard(){
         const labels=[...document.querySelectorAll(".goalForm label")];
@@ -2173,17 +2168,19 @@
         const step=wizardSteps[wizardStep];
         wizardArt.textContent=step.icon; wizardTitle.textContent=step.title; wizardPrompt.textContent=step.prompt;
         wizardProgressFill.style.width=`${((wizardStep+1)/wizardSteps.length)*100}%`;
-        settingsBackdrop.className=`modalBackdrop show goalWizardMode step-${wizardStep}${wizardStep===wizardSteps.length-1?" wizardFinal":""}`;
+        settingsBackdrop.className=`modalBackdrop show goalWizardMode step-${wizardStep}${wizardStep===wizardSteps.length-1?" wizardFinal":""}${forcedGoalSetup?" forcedWizard":""}`;
         wizardBackBtn.disabled=wizardStep===0;
         refreshGoalPreview();
         setTimeout(()=>labels[wizardStep]?.querySelector("input,select")?.focus(),180);
       }
 
-      function startGoalWizard(){
+      function startGoalWizard(force=false){
+        forcedGoalSetup=!!force;
         populateGoalForm(); wizardStep=0; renderGoalWizard();
       }
 
       function exitGoalWizard(){
+        if(forcedGoalSetup) return;
         settingsBackdrop.className="modalBackdrop";
         settingsBackdrop.setAttribute("aria-hidden","true");
       }
@@ -2205,15 +2202,22 @@
         purgePhrase.value = "";
         purgeConfirmBtn.disabled = true;
         openModal(settingsBackdrop);
-        if(goalMode) startGoalWizard();
+        if(goalMode) startGoalWizard(false);
       }
 
       let starterGoalPromptShown = false;
+      function needsForcedGoalSetup(){
+        if(!settings.sharedGoal) return true;
+        if(!isLongInactive()) return false;
+        return String(settings.sharedGoal.updated_at||"").slice(0,10) < todayISO();
+      }
       function maybeOpenStarterGoals(){
-        if(settingsBackdrop.classList.contains("goalWizardMode")){ starterGoalPromptShown=true; return; }
-        if(starterGoalPromptShown || (settings.sharedGoal && !isLongInactive())) return;
+        if(!needsForcedGoalSetup()) return;
+        if(settingsBackdrop.classList.contains("goalWizardMode")){ forcedGoalSetup=true; starterGoalPromptShown=true; renderGoalWizard(); return; }
+        if(starterGoalPromptShown) return;
         starterGoalPromptShown = true;
-        openSettings(true);
+        openSettings(false);
+        startGoalWizard(true);
       }
 
       async function purgeAllMemory(){
@@ -2262,9 +2266,7 @@
         document.querySelectorAll(".appPanel").forEach(panel => panel.classList.toggle("active", panel.id === btn.dataset.panel));
         window.scrollTo({top:0,behavior:"smooth"});
       }));
-      settingsBtn.addEventListener("click", () => openSettings(false));
-      dailyPlanSummary.addEventListener("click", () => { if(!settings.sharedGoal) openSettings(true); });
-      launchGoalWizardBtn.addEventListener("click", startGoalWizard);
+      settingsBtn.addEventListener("click", () => openSettings(true));
       wizardCloseBtn.addEventListener("click", exitGoalWizard);
       wizardBackBtn.addEventListener("click", () => { wizardStep--; renderGoalWizard(); });
       wizardNextBtn.addEventListener("click", () => {
@@ -2282,8 +2284,15 @@
           if(!res?.ok) throw new Error(res?.error||"Goal sync failed");
           settings.sharedGoal=res.shared.goal;
           settings.goals.calories=Number(settings.sharedGoal.calorie_target);
+          const setupWeight=Number(settings.sharedGoal.current_weight_lb||goal.current_weight_lb);
+          if(Number.isFinite(setupWeight)&&setupWeight>0){
+            bw.value=String(setupWeight);
+            const today=ensureDayRecord(selectedDate); today.bodyWeight=String(setupWeight); today.updatedAt=new Date().toISOString();
+            saveJSON(STORE_KEY,store);
+          }
           saveJSON(SETTINGS_KEY,settings);
-          refreshGoalTexts(); renderAdaptiveCoaching(); exitGoalWizard(); setSyncStatus("● synced");
+          forcedGoalSetup=false; starterGoalPromptShown=true;
+          refreshGoalTexts(); renderAdaptiveCoaching(); updateWorkoutOptions(); queueAutoSave(); exitGoalWizard(); setSyncStatus("● synced");
         }catch(err){ alert(String(err?.message||err)); setSyncStatus("● sync failed"); }
         finally{ saveGoalsBtn.disabled=false; }
       });
@@ -2396,6 +2405,7 @@
       renderWeightAverage();
       renderDashboard();
       syncGoalTogglesFromInputs();
+      maybeOpenStarterGoals();
       initializeCloudSync();
     })();
   </script>
