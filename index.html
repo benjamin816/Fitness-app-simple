@@ -253,7 +253,8 @@
     .wizardVersion{text-align:center;margin-top:8px;font-size:10px;font-weight:850;letter-spacing:.5px;color:rgba(255,255,255,.68)}
     .choiceStack{display:grid;gap:10px;width:min(590px,100%);margin:0 auto}.choiceCard{display:block;width:100%;text-align:left;padding:14px 16px;background:rgba(255,255,255,.14);border:2px solid rgba(255,255,255,.22);color:#fff;border-radius:18px;box-shadow:none}.choiceCard strong{display:block;font-size:16px}.choiceCard small{display:block;margin-top:5px;color:rgba(255,255,255,.78);font-weight:600;line-height:1.35}.choiceCard.selected{background:#fff;color:#302277;border-color:#fff;transform:scale(1.01)}.choiceCard.selected small{color:#665a8f}
     .bfChoices{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;width:min(590px,100%);margin:0 auto;padding:2px}.bfCard{min-width:0;padding:6px;border:2px solid rgba(255,255,255,.22);border-radius:16px;background:rgba(255,255,255,.13);color:#fff}.bfCard.selected{background:#fff;color:#322579;border-color:#fff}.bfCrop{height:145px;overflow:hidden;border-radius:11px;position:relative;background:#9d6448}.bfCrop img{position:absolute;top:0;height:100%;width:500%;max-width:none;object-fit:cover}.bfCard strong{display:block;text-align:center;margin:7px 0 2px;font-size:13px}.bfCard small{display:block;text-align:center;opacity:.8;font-size:10px}.referenceNote{text-align:center;color:rgba(255,255,255,.78);font-size:11px;margin-top:7px}.skipEstimate{display:block;margin:8px auto 0;background:transparent;border:0;color:rgba(255,255,255,.9);text-decoration:underline;box-shadow:none;padding:6px}
-    .sexGrid{display:grid;grid-template-columns:1fr 1fr;gap:14px;width:min(560px,100%);margin:0 auto}.sexCard{padding:10px;border:2px solid rgba(255,255,255,.24);border-radius:22px;background:rgba(255,255,255,.13);color:#fff}.sexCard.selected{background:#fff;color:#302277;border-color:#fff}.sexVisual{height:230px;overflow:hidden;position:relative;border-radius:15px;background:#9d6448}.sexVisual img{position:absolute;top:0;height:100%;width:500%;max-width:none;object-fit:cover;left:-200%}.sexCard strong{display:block;font-size:19px;margin-top:9px;text-align:center}
+    .sexGrid{display:grid;grid-template-columns:1fr 1fr;gap:14px;width:min(560px,100%);margin:0 auto}.sexCard{padding:8px;border:2px solid transparent;border-radius:26px;background:transparent;color:#fff;box-shadow:none}.sexCard.selected{background:rgba(255,255,255,.18);color:#fff;border-color:#fff;box-shadow:0 14px 35px rgba(25,15,75,.22)}.sexVisual{height:260px;overflow:hidden;position:relative;background:transparent}.sexVisual img{display:block;width:100%;height:100%;object-fit:contain}.sexCard strong{display:block;font-size:19px;margin-top:4px;text-align:center}
+    .movementCustom{margin-top:10px;padding:12px;border-radius:18px;background:rgba(255,255,255,.13)}.movementCustom strong{display:block;margin-bottom:8px}.movementPills{display:flex;flex-wrap:wrap;gap:7px;margin-bottom:12px}.movementPills:last-child{margin-bottom:0}.movementPills button{padding:8px 10px;background:rgba(255,255,255,.15);border-color:rgba(255,255,255,.25);color:#fff;box-shadow:none}.movementPills button.selected{background:#fff;color:#39299a;border-color:#fff}.leanStatus{padding:22px;border-radius:24px;background:rgba(255,255,255,.15);text-align:center}.leanStatus h3{font-size:24px;margin:0 0 8px}.leanStatus p{line-height:1.5;margin:0 0 16px}
     .summaryCard{width:min(560px,100%);margin:auto;background:rgba(255,255,255,.95);color:#2c2358;border-radius:22px;padding:20px}.summaryCard h3{margin:0 0 12px}.summaryLine{display:flex;justify-content:space-between;gap:14px;padding:9px 0;border-bottom:1px solid #e9e5f5}.summaryLine:last-child{border:0}
     @media(max-height:680px){.wizardArt{width:64px;height:64px;font-size:32px;margin:8px auto}.wizardQuestion{margin-bottom:8px}.bfCrop{height:150px}}
     @media(min-width:760px){.bfCrop{height:165px}}
@@ -345,7 +346,7 @@
     </div>
 
     <div id="syncStatus" class="footerSync">● syncing</div>
-    <div class="appVersion">Fitness Tracker · v2.4.1</div>
+    <div class="appVersion">Fitness Tracker · v2.5.0</div>
   </div>
 
   <div class="modalBackdrop" id="planBackdrop" aria-hidden="true">
@@ -392,10 +393,12 @@
           <label>Physique goal<select id="goalPhysique"><option value="leaner">Get leaner</option><option value="maintain">Maintain</option><option value="build">Build muscle</option></select></label>
           <label>Activity level<select id="goalActivity"><option value="sedentary">Mostly sedentary</option><option value="light">Lightly active</option><option value="moderate" selected>Moderately active</option><option value="very">Very active</option></select></label>
           <label>Pace<input id="goalRate" type="number" value="0.7" step="0.05"></label>
+          <label>Planned daily steps<input id="goalPlannedSteps" type="number" value="8000"></label>
+          <label>Planned workouts/week<input id="goalWorkoutDays" type="number" value="2"></label>
         </div>
         <div id="wizardControl" class="wizardControl"></div>
         <div id="goalPreview" class="small" style="margin-top:12px"></div>
-        <div class="wizardNav"><button id="wizardBackBtn" class="wizardBack" type="button">← Back</button><button id="wizardNextBtn" class="wizardNext" type="button">Next →</button></div><div class="wizardVersion">Fitness Tracker · v2.4.1</div>
+        <div class="wizardNav"><button id="wizardBackBtn" class="wizardBack" type="button">← Back</button><button id="wizardNextBtn" class="wizardNext" type="button">Next →</button></div><div class="wizardVersion">Fitness Tracker · v2.5.0</div>
         <button id="saveGoalsBtn" class="primary" type="button" style="margin-top:12px">Save shared goals</button>
       </div>
       </div>
@@ -668,7 +671,7 @@
       const eveningEstimate = $("eveningEstimate");
       const goalAge = $("goalAge"), goalSex = $("goalSex"), goalHeight = $("goalHeight"), goalWeight = $("goalWeight");
       const goalBodyFat = $("goalBodyFat"), goalTargetBodyFat = $("goalTargetBodyFat"), goalPhysique = $("goalPhysique");
-      const goalActivity = $("goalActivity"), goalRate = $("goalRate"), goalPreview = $("goalPreview"), saveGoalsBtn = $("saveGoalsBtn");
+      const goalActivity = $("goalActivity"), goalRate = $("goalRate"), goalPlannedSteps = $("goalPlannedSteps"), goalWorkoutDays = $("goalWorkoutDays"), goalPreview = $("goalPreview"), saveGoalsBtn = $("saveGoalsBtn");
 
       const planBackdrop = $("planBackdrop");
       const planTitle = $("planTitle");
@@ -823,13 +826,17 @@
         dailyPlanSummary.innerHTML = `<strong>🎯 ${Number(goal.calorie_target).toLocaleString()} cal · ${Number(goal.protein_min_g)}g protein</strong><div class="small" style="margin-top:6px">${dayPlan ? `Daytime: ${planned} cal · ${plannedProtein}g &nbsp; | &nbsp; Evening: ~${Math.max(0,Number(goal.calorie_target)-planned).toLocaleString()} cal` : "No daytime plan synced."}</div>`;
       }
 
-      function calculatedGoalFromForm(){
+      function calculatedGoalFromForm(overrides={}){
         const age=Number(goalAge.value), height=Number(goalHeight.value), weight=Number(goalWeight.value), bf=Number(goalBodyFat.value), targetBf=Number(goalTargetBodyFat.value);
         if(!age||!height||!weight) return null;
         const kg=weight*0.453592, cm=height*2.54;
         const bmr=10*kg+6.25*cm-5*age+(goalSex.value==="male"?5:-161);
         const factor={sedentary:1.2,light:1.375,moderate:1.55,very:1.725}[goalActivity.value]||1.55;
-        const maintenance=Math.round(bmr*factor/25)*25;
+        const baseline={sedentary:[3500,0],light:[5500,1],moderate:[8500,2],very:[11000,3]}[goalActivity.value]||[8500,2];
+        const plannedSteps=Number(overrides.steps??goalPlannedSteps.value??baseline[0]), workoutDays=Number(overrides.workouts??goalWorkoutDays.value??baseline[1]);
+        const currentMaintenance=bmr*factor;
+        const movementAdjustment=(plannedSteps-baseline[0])*.035*(weight/160)*.65+(workoutDays-baseline[1])*(220/7)*.65;
+        const maintenance=Math.round((currentMaintenance+movementAdjustment)/25)*25;
         const strategy=goalPhysique.value||"leaner";
         const rawRate=Number(goalRate.value||(strategy==="build" ? 0.25 : 0.7));
         const rate=strategy==="maintain"?0:(strategy==="build"?Math.max(.1,Math.min(.5,rawRate)):Math.max(.25,Math.min(1,rawRate)));
@@ -840,7 +847,7 @@
         const proteinBasis=strategy==="build"?weight*.9:Math.max(leanMass*.9,weight*.75);
         const protein=Math.max(100,Math.min(220,Math.round(proteinBasis/5)*5));
         const signedLossRate=strategy==="build"?-rate:rate;
-        return {age,sex:goalSex.value,height_in:height,current_weight_lb:weight,body_fat_pct:bf||"",target_body_fat_pct:targetBf||"",physique_goal:strategy,activity_level:goalActivity.value,loss_aggressiveness:strategy==="maintain"?"steady":rate<=.45?"gentle":rate<=.7?"moderate":"faster",target_loss_pct_week:signedLossRate,estimated_maintenance_calories:maintenance,calorie_target:calorieTarget,protein_min_g:protein};
+        return {age,sex:goalSex.value,height_in:height,current_weight_lb:weight,body_fat_pct:bf||"",target_body_fat_pct:targetBf||"",physique_goal:strategy,activity_level:goalActivity.value,planned_daily_steps:plannedSteps,planned_strength_workouts_week:workoutDays,loss_aggressiveness:strategy==="maintain"?"steady":rate<=.45?"gentle":rate<=.7?"moderate":"faster",target_loss_pct_week:signedLossRate,estimated_maintenance_calories:maintenance,calorie_target:calorieTarget,protein_min_g:protein};
       }
 
       function refreshGoalPreview(){
@@ -855,6 +862,7 @@
         goalBodyFat.value=g.body_fat_pct||""; goalTargetBodyFat.value=g.target_body_fat_pct||"";
         const legacyStrategy=g.physique_goal==="recomposition"?"maintain":g.physique_goal==="performance"?"build":g.physique_goal;
         goalPhysique.value=legacyStrategy||"leaner"; goalActivity.value=g.activity_level||"moderate";
+        goalPlannedSteps.value=g.planned_daily_steps||8000; goalWorkoutDays.value=g.planned_strength_workouts_week??2;
         goalRate.value=String(Math.abs(Number(g.target_loss_pct_week??.7))); refreshGoalPreview();
       }
 
@@ -2182,8 +2190,12 @@
       function wizardSteps(){
         const goal=goalPhysique.value;
         const steps=[...commonWizardSteps];
-        if(goal==="leaner"||goal==="maintain") steps.push("bodyfat","targetbodyfat");
-        if(goal==="leaner"||goal==="build") steps.push("pace");
+        const veryLean=Number(wizardTouched.bodyfatIndex)===4;
+        if(goal==="leaner"||goal==="maintain") steps.push("bodyfat");
+        if(veryLean&&(goal==="leaner"||goal==="maintain")) steps.push("leanstatus");
+        else if(goal==="leaner"||goal==="maintain") steps.push("targetbodyfat");
+        if(goal==="leaner"&&!veryLean||goal==="build") steps.push("pace");
+        steps.push("movement");
         steps.push("summary");
         return steps;
       }
@@ -2191,10 +2203,26 @@
       const stepCopy={
         age:{icon:"🎂",title:"How old are you?",prompt:"Slide to your age."},sex:{icon:"🧬",title:"Are you…",prompt:"Tap the visual that applies to you."},
         height:{icon:"📏",title:"How tall are you?",prompt:"Use the measuring wheel."},weight:{icon:"⚖️",title:"What do you weigh today?",prompt:"Adjust the starting estimate if needed."},
-        goal:{icon:"✨",title:"What’s your goal?",prompt:"Choose the direction you want your weight and training to take."},activity:{icon:"🏃",title:"How active are you?",prompt:"Think about a normal week, not your busiest week."},
+        goal:{icon:"✨",title:"What’s your goal?",prompt:"Choose the direction you want your weight and training to take."},activity:{icon:"🏃",title:"What does a normal week look like now?",prompt:"This is only your starting baseline. We’ll recommend where to go from here."},
         bodyfat:{icon:"🪞",title:"Which looks most like you now?",prompt:"A broad visual estimate is enough. You can also skip this estimate."},targetbodyfat:{icon:"🏁",title:"What outcome feels right?",prompt:"Choose a visual direction, not a promise of an exact appearance."},
-        pace:{icon:"⏱️",title:"Choose your pace",prompt:"Faster scale change also brings bigger tradeoffs."},summary:{icon:"✅",title:"Your starting plan",prompt:"You can change these choices later."}
+        leanstatus:{icon:"🛡️",title:"Leaner isn’t the right next step",prompt:"Your visual estimate is already in the very-lean range."},
+        pace:{icon:"⏱️",title:"Choose your pace",prompt:"Faster scale change also brings bigger tradeoffs."},movement:{icon:"👟",title:"Choose your movement plan",prompt:"We recommend a plan from your goal and starting point. More movement creates more food flexibility."},summary:{icon:"✅",title:"Your starting plan",prompt:"You can change these choices later."}
       };
+
+      function recommendedMovement(){
+        const goal=goalPhysique.value,rate=Number(goalRate.value||0);
+        if(goal==="leaner") return rate>=.85?{steps:10000,workouts:3}:rate>=.65?{steps:8500,workouts:3}:{steps:7500,workouts:2};
+        if(goal==="build") return {steps:7000,workouts:rate>=.35?3:2};
+        return {steps:7500,workouts:2};
+      }
+      function movementOptions(){
+        const rec=recommendedMovement();
+        return [
+          {key:"lower",title:"Lower commitment",steps:Math.max(5000,rec.steps-2000),workouts:Math.max(1,rec.workouts-1),desc:"Less movement; your food target adjusts to keep the same goal direction."},
+          {key:"recommended",title:"Recommended",steps:rec.steps,workouts:rec.workouts,desc:"Our best balance of progress, recovery, and food flexibility."},
+          {key:"higher",title:"Higher movement",steps:Math.min(12000,rec.steps+2000),workouts:rec.workouts,desc:"More daily movement and slightly more food flexibility."}
+        ];
+      }
 
       function choiceButton(value,title,description,selected){return `<button type="button" class="choiceCard${selected?" selected":""}" data-value="${value}"><strong>${title}</strong><small>${description}</small></button>`;}
       function setWizardNextReady(ready){wizardNextBtn.hidden=!ready;}
@@ -2216,7 +2244,7 @@
         const currentIndex=Number.isFinite(Number(wizardTouched.bodyfatIndex))?Number(wizardTouched.bodyfatIndex):-1;
         const indices=isTarget&&currentIndex>=0?[0,1,2,3,4].filter(i=>i>=currentIndex):[0,1,2,3,4];
         wizardControl.innerHTML=`<div class="bfChoices">${indices.map(i=>`<button type="button" class="bfCard${Number(wizardTouched[isTarget?"targetIndex":"bodyfatIndex"])===i?" selected":""}" data-index="${i}" data-value="${values[i]}"><div class="bfCrop"><img src="${image}" alt="Body composition reference stage ${i+1}" style="left:-${i*100}%"></div><strong>${isTarget?["Higher","Comfortable","Healthy middle","Lean","Very lean"][i]:ranges[i]}</strong><small>${isTarget?ranges[i]:["Higher range","Moderately high","Average","Fit / lean","Very lean"][i]}</small></button>`).join("")}</div><div class="referenceNote">Illustrations are broad references. Bodies can look different at the same percentage.</div>${!isTarget?`<button type="button" class="skipEstimate" id="skipBodyFat">Skip this estimate</button>`:""}`;
-        wizardControl.querySelectorAll(".bfCard").forEach(btn=>btn.onclick=()=>{wizardTouched[isTarget?"targetIndex":"bodyfatIndex"]=btn.dataset.index; if(isTarget)goalTargetBodyFat.value=btn.dataset.value;else goalBodyFat.value=btn.dataset.value;renderWizardControl(isTarget?"targetbodyfat":"bodyfat");});
+        wizardControl.querySelectorAll(".bfCard").forEach(btn=>btn.onclick=()=>{wizardTouched[isTarget?"targetIndex":"bodyfatIndex"]=btn.dataset.index; if(isTarget)goalTargetBodyFat.value=btn.dataset.value;else{goalBodyFat.value=btn.dataset.value;if(Number(btn.dataset.index)===4){goalTargetBodyFat.value="";wizardTouched.targetIndex=undefined;}}renderWizardControl(isTarget?"targetbodyfat":"bodyfat");});
         if(!isTarget)$("skipBodyFat").onclick=()=>{wizardTouched.bodyfatIndex="skip";goalBodyFat.value="";renderWizardControl("bodyfat");};
         setWizardNextReady(wizardTouched[isTarget?"targetIndex":"bodyfatIndex"]!==undefined);
       }
@@ -2225,23 +2253,38 @@
         const weight=Number(goalWeight.value||160);
         if(step==="age"){const v=Number(goalAge.value||25);goalAge.value=v;wheelControl("age",18,90,1,v,v=>`${v} years`);return;}
         if(step==="sex"){
-          wizardControl.innerHTML=`<div class="sexGrid"><button type="button" class="sexCard${goalSex.value==="male"&&wizardTouched.sex?" selected":""}" data-value="male"><div class="sexVisual"><img src="assets/body-fat-male.png" alt="Man illustration"></div><strong>Man</strong></button><button type="button" class="sexCard${goalSex.value==="female"&&wizardTouched.sex?" selected":""}" data-value="female"><div class="sexVisual"><img src="assets/body-fat-female.png" alt="Woman illustration"></div><strong>Woman</strong></button></div>`;
+          wizardControl.innerHTML=`<div class="sexGrid"><button type="button" class="sexCard${goalSex.value==="male"&&wizardTouched.sex?" selected":""}" data-value="male"><div class="sexVisual"><img src="assets/onboarding-man.png" alt="Full-body illustration of a man"></div><strong>Man</strong></button><button type="button" class="sexCard${goalSex.value==="female"&&wizardTouched.sex?" selected":""}" data-value="female"><div class="sexVisual"><img src="assets/onboarding-woman.png" alt="Full-body illustration of a woman"></div><strong>Woman</strong></button></div>`;
           wizardControl.querySelectorAll(".sexCard").forEach(btn=>btn.onclick=()=>{goalSex.value=btn.dataset.value;wizardTouched.sex=true;if(!wizardTouched.height){goalHeight.value=btn.dataset.value==="male"?68:64;}renderWizardControl(step);});setWizardNextReady(!!wizardTouched.sex);return;
         }
         if(step==="height"){const v=Number(goalHeight.value||(goalSex.value==="female"?64:68));goalHeight.value=v;wizardTouched.height=true;wheelControl("height",48,84,1,v,v=>`${Math.floor(v/12)} ft ${v%12} in`);return;}
         if(step==="weight"){let v=Number(goalWeight.value);if(!v){const h=Number(goalHeight.value||68);v=Math.round(24*h*h/703);goalWeight.value=v;}wizardTouched.weight=true;wheelControl("weight",90,350,1,v,v=>`${v} lb`);return;}
         if(step==="goal"){
-          const cards=[choiceButton("leaner","Get leaner","Use a calorie deficit so weight and body fat trend down.",goalPhysique.value==="leaner"&&wizardTouched.goal),choiceButton("maintain","Maintain","Keep weight roughly steady while strength rises and body composition changes slowly.",goalPhysique.value==="maintain"&&wizardTouched.goal),choiceButton("build","Build muscle","Use a controlled calorie surplus so weight and muscle trend up.",goalPhysique.value==="build"&&wizardTouched.goal)];wizardControl.innerHTML=`<div class="choiceStack">${cards.join("")}</div>`;wizardControl.querySelectorAll(".choiceCard").forEach(btn=>btn.onclick=()=>{goalPhysique.value=btn.dataset.value;goalRate.value=btn.dataset.value==="build" ? 0.25 : btn.dataset.value==="maintain" ? 0 : 0.7;wizardTouched.goal=true;wizardTouched.pace=false;renderWizardControl(step);});setWizardNextReady(!!wizardTouched.goal);return;
+          const cards=[choiceButton("leaner","Get leaner","Use a calorie deficit so weight and body fat trend down.",goalPhysique.value==="leaner"&&wizardTouched.goal),choiceButton("maintain","Maintain","Keep weight roughly steady while strength rises and body composition changes slowly.",goalPhysique.value==="maintain"&&wizardTouched.goal),choiceButton("build","Build muscle","Use a controlled calorie surplus so weight and muscle trend up.",goalPhysique.value==="build"&&wizardTouched.goal)];wizardControl.innerHTML=`<div class="choiceStack">${cards.join("")}</div>`;wizardControl.querySelectorAll(".choiceCard").forEach(btn=>btn.onclick=()=>{goalPhysique.value=btn.dataset.value;goalRate.value=btn.dataset.value==="build" ? 0.25 : btn.dataset.value==="maintain" ? 0 : 0.7;wizardTouched.goal=true;wizardTouched.pace=false;wizardTouched.movementChoice="";renderWizardControl(step);});setWizardNextReady(!!wizardTouched.goal);return;
         }
         if(step==="activity"){
-          const opts=[["sedentary","Mostly sedentary","Usually under 4,000 steps/day and no regular workouts."],["light","Lightly active","Roughly 4,000–7,000 steps/day and about one workout or vigorous sport session weekly."],["moderate","Moderately active","Roughly 7,000–10,000 steps/day and about two workouts weekly."],["very","Very active","Commonly 10,000+ steps/day and three or more workouts weekly, or a physically demanding job."]];wizardControl.innerHTML=`<div class="choiceStack">${opts.map(o=>choiceButton(o[0],o[1],o[2],goalActivity.value===o[0]&&wizardTouched.activity)).join("")}</div>`;wizardControl.querySelectorAll(".choiceCard").forEach(btn=>btn.onclick=()=>{goalActivity.value=btn.dataset.value;wizardTouched.activity=true;renderWizardControl(step);});setWizardNextReady(!!wizardTouched.activity);return;
+          const opts=[["sedentary","Mostly sedentary","Usually under 4,000 steps/day and no regular workouts."],["light","Lightly active","Roughly 4,000–7,000 steps/day and about one workout or vigorous sport session weekly."],["moderate","Moderately active","Roughly 7,000–10,000 steps/day and about two workouts weekly."],["very","Very active","Commonly 10,000+ steps/day and three or more workouts weekly, or a physically demanding job."]];wizardControl.innerHTML=`<div class="choiceStack">${opts.map(o=>choiceButton(o[0],o[1],o[2],goalActivity.value===o[0]&&wizardTouched.activity)).join("")}</div>`;wizardControl.querySelectorAll(".choiceCard").forEach(btn=>btn.onclick=()=>{goalActivity.value=btn.dataset.value;wizardTouched.activity=true;wizardTouched.movementChoice="";renderWizardControl(step);});setWizardNextReady(!!wizardTouched.activity);return;
         }
         if(step==="bodyfat"){bodyFatOptions(false);return;} if(step==="targetbodyfat"){bodyFatOptions(true);return;}
+        if(step==="leanstatus"){
+          wizardControl.innerHTML=`<div class="leanStatus"><h3>Maintaining is the healthier direction</h3><p>Based on the visual range you chose, intentionally pushing your weight lower is unlikely to be the best next goal. Maintain your weight, train for strength, and reassess over time.</p><button type="button" id="acceptMaintain" class="wizardNext">Continue with Maintain</button></div>`;
+          $("acceptMaintain").onclick=()=>{goalPhysique.value="maintain";goalRate.value=0;wizardTouched.leanstatus=true;renderWizardControl(step);};setWizardNextReady(!!wizardTouched.leanstatus);return;
+        }
         if(step==="pace"){
-          const build=goalPhysique.value==="build";const opts=build?[[.15,"Lean gain","About "+(weight*.0015).toFixed(1)+"–"+(weight*.002).toFixed(1)+" lb/week. Slowest gain, least expected fat."],[.25,"Moderate gain · Recommended","About "+(weight*.0025).toFixed(1)+"–"+(weight*.003).toFixed(1)+" lb/week. Balanced muscle gain and appetite."],[.4,"Faster gain","About "+(weight*.004).toFixed(1)+"–"+(weight*.005).toFixed(1)+" lb/week. More scale gain, with more likely fat."]]:[[.5,"Conservative · 0.5%/week","Targets about "+(weight*.005).toFixed(1)+" lb/week on the scale. Easier recovery and strength retention."],[.7,"Recommended · 0.7%/week","Targets about "+(weight*.007).toFixed(1)+" lb/week on the scale. A strong balance of progress and performance."],[.9,"Aggressive · 0.9%/week","Targets about "+(weight*.009).toFixed(1)+" lb/week on the scale. Greater hunger and recovery demands; 1.0% is the upper boundary."]];wizardControl.innerHTML=`<div class="choiceStack">${opts.map(o=>choiceButton(o[0],o[1],o[2],String(goalRate.value)===String(o[0])&&wizardTouched.pace)).join("")}</div>`;wizardControl.querySelectorAll(".choiceCard").forEach(btn=>btn.onclick=()=>{goalRate.value=btn.dataset.value;wizardTouched.pace=true;renderWizardControl(step);});setWizardNextReady(!!wizardTouched.pace);return;
+          const build=goalPhysique.value==="build";const opts=build?[[.15,"Lean gain","About "+(weight*.0015).toFixed(1)+"–"+(weight*.002).toFixed(1)+" lb/week. Slowest gain, least expected fat."],[.25,"Moderate gain · Recommended","About "+(weight*.0025).toFixed(1)+"–"+(weight*.003).toFixed(1)+" lb/week. Balanced muscle gain and appetite."],[.4,"Faster gain","About "+(weight*.004).toFixed(1)+"–"+(weight*.005).toFixed(1)+" lb/week. More scale gain, with more likely fat."]]:[[.5,"Conservative · 0.5%/week","Targets about "+(weight*.005).toFixed(1)+" lb/week on the scale. Easier recovery and strength retention."],[.7,"Recommended · 0.7%/week","Targets about "+(weight*.007).toFixed(1)+" lb/week on the scale. A strong balance of progress and performance."],[.9,"Aggressive · 0.9%/week","Targets about "+(weight*.009).toFixed(1)+" lb/week on the scale. Greater hunger and recovery demands; 1.0% is the upper boundary."]];wizardControl.innerHTML=`<div class="choiceStack">${opts.map(o=>choiceButton(o[0],o[1],o[2],String(goalRate.value)===String(o[0])&&wizardTouched.pace)).join("")}</div>`;wizardControl.querySelectorAll(".choiceCard").forEach(btn=>btn.onclick=()=>{goalRate.value=btn.dataset.value;wizardTouched.pace=true;wizardTouched.movementChoice="";renderWizardControl(step);});setWizardNextReady(!!wizardTouched.pace);return;
+        }
+        if(step==="movement"){
+          const options=movementOptions(),selected=wizardTouched.movementChoice||"";
+          const cards=options.map(o=>{const calories=calculatedGoalFromForm({steps:o.steps,workouts:o.workouts})?.calorie_target;return choiceButton(o.key,o.title,`${o.steps.toLocaleString()} steps/day · ${o.workouts} strength workout${o.workouts===1?"":"s"}/week · ${calories?.toLocaleString()||"—"} calories/day. ${o.desc}`,selected===o.key)});
+          cards.push(choiceButton("custom","Customize","Choose your own daily steps and realistic weekly workout commitment.",selected==="custom"));
+          const customCalories=calculatedGoalFromForm()?.calorie_target;
+          const custom=selected==="custom"?`<div class="movementCustom"><strong>Daily steps</strong><div class="movementPills">${[4000,6000,8000,10000,12000].map(v=>`<button type="button" data-steps="${v}" class="${Number(goalPlannedSteps.value)===v?"selected":""}">${(v/1000)}k</button>`).join("")}</div><strong>Strength workouts each week</strong><div class="movementPills">${[1,2,3,4].map(v=>`<button type="button" data-workouts="${v}" class="${Number(goalWorkoutDays.value)===v?"selected":""}">${v} day${v===1?"":"s"}</button>`).join("")}</div><div class="referenceNote">Your current choice supports a target of about ${customCalories?.toLocaleString()||"—"} calories/day.</div></div>`:"";
+          wizardControl.innerHTML=`<div class="choiceStack">${cards.join("")}</div>${custom}`;
+          wizardControl.querySelectorAll(".choiceCard").forEach(btn=>btn.onclick=()=>{wizardTouched.movementChoice=btn.dataset.value;if(btn.dataset.value!=="custom"){const pick=options.find(o=>o.key===btn.dataset.value);goalPlannedSteps.value=pick.steps;goalWorkoutDays.value=pick.workouts;}else{const rec=recommendedMovement();goalPlannedSteps.value=rec.steps;goalWorkoutDays.value=rec.workouts;}renderWizardControl(step);});
+          wizardControl.querySelectorAll("[data-steps]").forEach(btn=>btn.onclick=()=>{goalPlannedSteps.value=btn.dataset.steps;renderWizardControl(step);});wizardControl.querySelectorAll("[data-workouts]").forEach(btn=>btn.onclick=()=>{goalWorkoutDays.value=btn.dataset.workouts;renderWizardControl(step);});
+          setWizardNextReady(!!selected);return;
         }
         const calculated=calculatedGoalFromForm(),goalLabel={leaner:"Get leaner",maintain:"Maintain",build:"Build muscle"}[goalPhysique.value]||"—";
-        wizardControl.innerHTML=`<div class="summaryCard"><h3>${goalLabel}</h3><div class="summaryLine"><span>Daily calories</span><strong>${calculated?.calorie_target?.toLocaleString()||"—"}</strong></div><div class="summaryLine"><span>Protein minimum</span><strong>${calculated?.protein_min_g||"—"}g</strong></div><div class="summaryLine"><span>Activity</span><strong>${goalActivity.options[goalActivity.selectedIndex]?.text||"—"}</strong></div><div class="summaryLine"><span>Direction</span><strong>${goalPhysique.value==="leaner"?"Weight down":goalPhysique.value==="build"?"Weight up":"Weight steady"}</strong></div></div>`;setWizardNextReady(false);
+        wizardControl.innerHTML=`<div class="summaryCard"><h3>${goalLabel}</h3><div class="summaryLine"><span>Daily calories</span><strong>${calculated?.calorie_target?.toLocaleString()||"—"}</strong></div><div class="summaryLine"><span>Protein minimum</span><strong>${calculated?.protein_min_g||"—"}g</strong></div><div class="summaryLine"><span>Daily steps</span><strong>${Number(goalPlannedSteps.value).toLocaleString()}</strong></div><div class="summaryLine"><span>Strength workouts</span><strong>${goalWorkoutDays.value}/week</strong></div><div class="summaryLine"><span>Direction</span><strong>${goalPhysique.value==="leaner"?"Weight down":goalPhysique.value==="build"?"Weight up":"Weight steady"}</strong></div></div>`;setWizardNextReady(false);
       }
 
       function renderGoalWizard(){
@@ -2254,7 +2297,7 @@
 
       function startGoalWizard(force=false){
         forcedGoalSetup=!!force;
-        populateGoalForm();wizardTouched=settings.sharedGoal?{sex:true,height:true,weight:true,goal:true,activity:true,pace:true,bodyfatIndex:undefined,targetIndex:undefined}:{};wizardStep=0;renderGoalWizard();
+        populateGoalForm();wizardTouched=settings.sharedGoal?{sex:true,height:true,weight:true,goal:true,activity:true,pace:true,movementChoice:"custom",bodyfatIndex:undefined,targetIndex:undefined}:{};wizardStep=0;renderGoalWizard();
       }
 
       function exitGoalWizard(){
@@ -2274,7 +2317,7 @@
           queueAutoSave();
         }
         populateGoalForm();
-        [goalAge,goalSex,goalHeight,goalWeight,goalBodyFat,goalTargetBodyFat,goalPhysique,goalActivity,goalRate].forEach(inp=>inp.oninput=refreshGoalPreview);
+        [goalAge,goalSex,goalHeight,goalWeight,goalBodyFat,goalTargetBodyFat,goalPhysique,goalActivity,goalRate,goalPlannedSteps,goalWorkoutDays].forEach(inp=>inp.oninput=refreshGoalPreview);
         [setIncrement, setTimeIncrement].forEach(inp => inp.oninput = syncSettings);
         purgeConfirmWrap.style.display = "none";
         purgePhrase.value = "";

@@ -1,5 +1,5 @@
 /** Shared health contract used by Fitness Tracker and Morning Macros. */
-const SHARED_SCHEMA_VERSION = '2.0.0';
+const SHARED_SCHEMA_VERSION = '2.1.0';
 const SHEET_HEALTH_GOALS = 'HealthGoals';
 const SHEET_PLANNED_DAYTIME = 'PlannedDaytime';
 const SHEET_GOAL_ADJUSTMENTS = 'GoalAdjustments';
@@ -8,7 +8,8 @@ const HEALTH_GOAL_HEADERS = [
   'profile_id','schema_version','age','sex','height_in','current_weight_lb',
   'body_fat_pct','target_body_fat_pct','physique_goal','activity_level',
   'loss_aggressiveness','target_loss_pct_week','estimated_maintenance_calories',
-  'calorie_target','protein_min_g','goal_version','updated_at','updated_by'
+  'calorie_target','protein_min_g','goal_version','updated_at','updated_by',
+  'planned_daily_steps','planned_strength_workouts_week'
 ];
 
 const PLANNED_DAYTIME_HEADERS = [
@@ -73,7 +74,7 @@ function currentHealthGoal_() {
 
 function normalizeGoalRow_(row) {
   if (!row) return null;
-  const numeric = ['age','height_in','current_weight_lb','body_fat_pct','target_body_fat_pct','target_loss_pct_week','estimated_maintenance_calories','calorie_target','protein_min_g','goal_version'];
+  const numeric = ['age','height_in','current_weight_lb','body_fat_pct','target_body_fat_pct','planned_daily_steps','planned_strength_workouts_week','target_loss_pct_week','estimated_maintenance_calories','calorie_target','protein_min_g','goal_version'];
   const out = {};
   HEALTH_GOAL_HEADERS.forEach(h => out[h] = numeric.indexOf(h)>=0 && row[h]!=='' ? Number(row[h]) : row[h]);
   return out;
@@ -91,13 +92,14 @@ function saveHealthGoals_(goal, expectedVersion) {
     age:numOrBlank_(goal.age), sex:String(goal.sex||''), height_in:numOrBlank_(goal.height_in),
     current_weight_lb:numOrBlank_(goal.current_weight_lb), body_fat_pct:numOrBlank_(goal.body_fat_pct),
     target_body_fat_pct:numOrBlank_(goal.target_body_fat_pct), physique_goal:String(goal.physique_goal||''),
-    activity_level:String(goal.activity_level||''), loss_aggressiveness:String(goal.loss_aggressiveness||'moderate'),
+    activity_level:String(goal.activity_level||''), planned_daily_steps:numOrBlank_(goal.planned_daily_steps),
+    planned_strength_workouts_week:numOrBlank_(goal.planned_strength_workouts_week), loss_aggressiveness:String(goal.loss_aggressiveness||'moderate'),
     target_loss_pct_week:numOrBlank_(goal.target_loss_pct_week),
     estimated_maintenance_calories:numOrBlank_(goal.estimated_maintenance_calories),
     calorie_target:numOrBlank_(goal.calorie_target), protein_min_g:numOrBlank_(goal.protein_min_g),
     goal_version:currentVersion+1, updated_at:new Date().toISOString(), updated_by:'fitness_tracker'
   };
-  if (!next.calorie_target || !next.protein_min_g || !next.target_loss_pct_week) throw new Error('Calorie, protein, and weekly-loss targets are required.');
+  if (!next.calorie_target || !next.protein_min_g || next.target_loss_pct_week==='') throw new Error('Calorie, protein, and weekly target are required.');
   replaceSingleRow_(sheet, HEALTH_GOAL_HEADERS, next);
   writeSettingsMap_({calories_goal:next.calorie_target,protein_goal:next.protein_min_g,shared_goal_version:next.goal_version,shared_schema_version:SHARED_SCHEMA_VERSION});
   return {ok:true,shared:sharedState_()};
@@ -168,6 +170,8 @@ function getGoalAdjustmentsSheet_(){ return ensureSharedSheet_(SHEET_GOAL_ADJUST
 
 function ensureSharedSheet_(name,headers){
   const sheet=ensureSheet_(name,headers);
+  const existing=getHeaders_(sheet);
+  headers.forEach((header,index)=>{ if(existing[index]!==header) sheet.getRange(1,index+1).setValue(header); });
   sheet.setFrozenRows(1);
   sheet.getRange(1,1,1,headers.length).setFontWeight('bold').setBackground('#1f4e3d').setFontColor('#ffffff');
   return sheet;
