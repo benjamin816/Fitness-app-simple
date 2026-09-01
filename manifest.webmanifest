@@ -1,0 +1,24 @@
+{
+  "name": "Fitness Tracker",
+  "short_name": "Fitness Tracker",
+  "description": "Track weight, progress, goals, and workouts.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f4f2ff",
+  "theme_color": "#6d4aff",
+  "icons": [
+    {
+      "src": "assets/fitness-tracker-icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "assets/fitness-tracker-icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
