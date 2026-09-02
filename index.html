@@ -356,7 +356,7 @@
     </div>
 
     <div id="syncStatus" class="footerSync">● syncing</div>
-    <div class="appVersion">Fitness Tracker · v2.5.4</div>
+    <div class="appVersion">Fitness Tracker · v2.5.5</div>
   </div>
 
   <div class="modalBackdrop" id="planBackdrop" aria-hidden="true">
@@ -408,7 +408,7 @@
         </div>
         <div id="wizardControl" class="wizardControl"></div>
         <div id="goalPreview" class="small" style="margin-top:12px"></div>
-        <div class="wizardNav"><button id="wizardBackBtn" class="wizardBack" type="button">← Back</button><button id="wizardNextBtn" class="wizardNext" type="button">Next →</button></div><div class="wizardVersion">Fitness Tracker · v2.5.4</div>
+        <div class="wizardNav"><button id="wizardBackBtn" class="wizardBack" type="button">← Back</button><button id="wizardNextBtn" class="wizardNext" type="button">Next →</button></div><div class="wizardVersion">Fitness Tracker · v2.5.5</div>
         <button id="saveGoalsBtn" class="primary" type="button" style="margin-top:12px">Save shared goals</button>
       </div>
       </div>
@@ -1549,11 +1549,23 @@
       }
 
       async function cloudPost(body){
-        const res = await fetch(GAS_URL, {
-          method:"POST",
-          body: JSON.stringify(body)
-        });
-        return await res.json();
+        try{
+          const res = await fetch(GAS_URL, {
+            method:"POST",
+            headers:{"Content-Type":"text/plain;charset=utf-8"},
+            redirect:"follow",
+            body: JSON.stringify(body)
+          });
+          return await res.json();
+        }catch(error){
+          if(body?.action!=="saveHealthGoals") throw error;
+          await new Promise(resolve=>setTimeout(resolve,700));
+          const verified=await cloudGet("getSharedState");
+          const saved=verified?.shared?.goal,requested=body.goal||{};
+          const matches=saved&&String(saved.physique_goal)===String(requested.physique_goal)&&Number(saved.current_weight_lb)===Number(requested.current_weight_lb)&&Number(saved.calorie_target)===Number(requested.calorie_target)&&Number(saved.protein_min_g)===Number(requested.protein_min_g)&&Number(saved.planned_daily_steps)===Number(requested.planned_daily_steps)&&Number(saved.planned_strength_workouts_week)===Number(requested.planned_strength_workouts_week);
+          if(matches)return {ok:true,verifiedAfterResponseFailure:true,shared:verified.shared};
+          throw error;
+        }
       }
 
       async function syncCurrentDayToCloud(){
