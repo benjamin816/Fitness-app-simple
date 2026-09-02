@@ -179,6 +179,20 @@
       padding:18px;z-index:999
     }
     .modalBackdrop.show{display:flex}
+    .weeklyCheckinBackdrop{position:fixed;inset:0;z-index:1200;display:none;align-items:center;justify-content:center;padding:24px;background:linear-gradient(145deg,#6246e5,#9a6df5);color:#fff}
+    .weeklyCheckinBackdrop.show{display:flex;animation:checkinFade .35s ease both}
+    .weeklyCheckinCard{width:min(560px,100%);text-align:center}
+    .weeklyCheckinIcon{width:104px;height:104px;margin:0 auto 22px;display:grid;place-items:center;border-radius:34px;background:rgba(255,255,255,.18);font-size:52px;box-shadow:0 20px 45px rgba(30,16,88,.24);animation:checkinFloat 2.5s ease-in-out infinite}
+    .weeklyCheckinEyebrow{text-transform:uppercase;letter-spacing:1.5px;font-size:12px;font-weight:900;color:rgba(255,255,255,.76)}
+    .weeklyCheckinCard h2{font-size:clamp(34px,9vw,54px);line-height:1;margin:10px 0 12px;letter-spacing:-1.8px}
+    .weeklyCheckinLead{margin:0 auto 22px;max-width:470px;color:rgba(255,255,255,.84);font-size:16px;line-height:1.5}
+    .weeklyCheckinStats{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:0 auto 18px}
+    .weeklyCheckinStat{padding:16px 10px;border-radius:20px;background:rgba(255,255,255,.14)}
+    .weeklyCheckinStat small{display:block;color:rgba(255,255,255,.72);font-weight:800;margin-bottom:5px}
+    .weeklyCheckinStat strong{font-size:22px}
+    .weeklyCheckinNote{margin:0 0 22px;color:rgba(255,255,255,.74);font-size:12px;line-height:1.45}
+    .weeklyCheckinDone{width:100%;padding:16px;border:0;background:#fff;color:#402d9e;font-weight:950;font-size:16px;box-shadow:0 12px 28px rgba(31,17,87,.22)}
+    @keyframes checkinFade{from{opacity:0}to{opacity:1}}@keyframes checkinFloat{50%{transform:translateY(-8px) rotate(2deg)}}
     .modal{
       width:min(980px,100%);max-height:86vh;overflow:auto;background:#fff;border:1px solid var(--line);
       border-radius:18px;box-shadow:var(--shadow);padding:16px
@@ -356,7 +370,22 @@
     </div>
 
     <div id="syncStatus" class="footerSync">● syncing</div>
-    <div class="appVersion">Fitness Tracker · v2.5.6</div>
+    <div class="appVersion">Fitness Tracker · v2.5.7</div>
+  </div>
+
+  <div class="weeklyCheckinBackdrop" id="weeklyCheckinBackdrop" aria-hidden="true">
+    <section class="weeklyCheckinCard" role="dialog" aria-modal="true" aria-labelledby="weeklyCheckinTitle">
+      <div class="weeklyCheckinIcon" id="weeklyCheckinIcon">📈</div>
+      <div class="weeklyCheckinEyebrow" id="weeklyCheckinEyebrow">Weekly check-in</div>
+      <h2 id="weeklyCheckinTitle">You’re on track</h2>
+      <p class="weeklyCheckinLead" id="weeklyCheckinLead"></p>
+      <div class="weeklyCheckinStats">
+        <div class="weeklyCheckinStat"><small>Your trend</small><strong id="weeklyCheckinActual">—</strong></div>
+        <div class="weeklyCheckinStat"><small>Your target</small><strong id="weeklyCheckinTarget">—</strong></div>
+      </div>
+      <p class="weeklyCheckinNote" id="weeklyCheckinNote"></p>
+      <button class="weeklyCheckinDone" id="weeklyCheckinDone" type="button">Got it</button>
+    </section>
   </div>
 
   <div class="modalBackdrop" id="planBackdrop" aria-hidden="true">
@@ -408,7 +437,7 @@
         </div>
         <div id="wizardControl" class="wizardControl"></div>
         <div id="goalPreview" class="small" style="margin-top:12px"></div>
-        <div class="wizardNav"><button id="wizardBackBtn" class="wizardBack" type="button">← Back</button><button id="wizardNextBtn" class="wizardNext" type="button">Next →</button></div><div class="wizardVersion">Fitness Tracker · v2.5.6</div>
+        <div class="wizardNav"><button id="wizardBackBtn" class="wizardBack" type="button">← Back</button><button id="wizardNextBtn" class="wizardNext" type="button">Next →</button></div><div class="wizardVersion">Fitness Tracker · v2.5.7</div>
         <button id="saveGoalsBtn" class="primary" type="button" style="margin-top:12px">Save shared goals</button>
       </div>
       </div>
@@ -468,7 +497,8 @@
         increment: 5,
         timeIncrementSec: 5,
         baselines: {},
-        sharedGoal: null
+        sharedGoal: null,
+        weeklyCheckinMilestone: 0
       };
 
       ["ben_tracker_v11_store","ben_tracker_v11_settings","ben_tracker_v11_timers","ben_tracker_v11_cloud"].forEach(key=>localStorage.removeItem(key));
@@ -499,6 +529,7 @@
       if(typeof settings.timeIncrementSec !== "number") settings.timeIncrementSec = 5;
       settings.baselines = migrateBaselineDataKeys(settings.baselines || {});
       settings.sharedGoal = settings.sharedGoal && typeof settings.sharedGoal === "object" ? settings.sharedGoal : null;
+      settings.weeklyCheckinMilestone = Math.max(0, Number(settings.weeklyCheckinMilestone) || 0);
 
       (function ensureDumbbellBicepCurl(){
         if(!Array.isArray(WORKOUTS?.C)) return;
@@ -682,6 +713,9 @@
       const dailyPlanSummary = $("dailyPlanSummary");
       const progressCheck = $("progressCheck");
       const eveningEstimate = $("eveningEstimate");
+      const weeklyCheckinBackdrop = $("weeklyCheckinBackdrop"), weeklyCheckinIcon = $("weeklyCheckinIcon");
+      const weeklyCheckinEyebrow = $("weeklyCheckinEyebrow"), weeklyCheckinTitle = $("weeklyCheckinTitle"), weeklyCheckinLead = $("weeklyCheckinLead");
+      const weeklyCheckinActual = $("weeklyCheckinActual"), weeklyCheckinTarget = $("weeklyCheckinTarget"), weeklyCheckinNote = $("weeklyCheckinNote"), weeklyCheckinDone = $("weeklyCheckinDone");
       const goalAge = $("goalAge"), goalSex = $("goalSex"), goalHeight = $("goalHeight"), goalWeight = $("goalWeight");
       const goalBodyFat = $("goalBodyFat"), goalTargetBodyFat = $("goalTargetBodyFat"), goalPhysique = $("goalPhysique");
       const goalActivity = $("goalActivity"), goalRate = $("goalRate"), goalPlannedSteps = $("goalPlannedSteps"), goalWorkoutDays = $("goalWorkoutDays"), goalPreview = $("goalPreview"), saveGoalsBtn = $("saveGoalsBtn");
@@ -890,6 +924,68 @@
         const days=Math.max(14,Math.round((new Date(latestDate+"T12:00:00")-new Date(prior[prior.length-1].date+"T12:00:00"))/86400000));
         const actual=((priorAvg-latestAvg)/priorAvg)*100/(days/7);
         return {actual,priorAvg,latestAvg,start:prior[0].date,end:latestDate,days};
+      }
+
+      function activeWeightEntries(){
+        const start=settings.freshStartDate||"";
+        return Object.keys(store.days).map(date=>({date,weight:Number(store.days[date]?.bodyWeight)}))
+          .filter(x=>x.date<=todayISO()&&(!start||x.date>=start)&&Number.isFinite(x.weight)&&x.weight>=60&&x.weight<=700)
+          .sort((a,b)=>a.date.localeCompare(b.date));
+      }
+
+      function weeklyCheckinTrend(entries){
+        const latest=entries.slice(-7), average=list=>list.reduce((sum,item)=>sum+item.weight,0)/list.length;
+        if(entries.length>=14){
+          const prior=entries.slice(-14,-7), priorAvg=average(prior), latestAvg=average(latest);
+          const meanTime=list=>list.reduce((sum,item)=>sum+new Date(item.date+"T12:00:00").getTime(),0)/list.length;
+          const days=Math.max(7,(meanTime(latest)-meanTime(prior))/86400000);
+          return {actual:((priorAvg-latestAvg)/priorAvg)*100/(days/7),early:false};
+        }
+        const origin=new Date(latest[0].date+"T12:00:00").getTime();
+        const points=latest.map(item=>({x:(new Date(item.date+"T12:00:00").getTime()-origin)/86400000,y:item.weight}));
+        const meanX=points.reduce((sum,p)=>sum+p.x,0)/points.length, meanY=average(latest);
+        const denominator=points.reduce((sum,p)=>sum+((p.x-meanX)**2),0);
+        const slope=denominator?points.reduce((sum,p)=>sum+((p.x-meanX)*(p.y-meanY)),0)/denominator:0;
+        return {actual:-(slope*7/meanY)*100,early:true};
+      }
+
+      function weeklyCheckinVerdict(actual,target){
+        if(Math.abs(target)<.05){
+          if(Math.abs(actual)<=.15) return {state:"positive",icon:"⚖️",title:"Nicely balanced",lead:"Your weight trend is staying in the maintenance zone."};
+          if(Math.abs(actual)<=.3) return {state:"neutral",icon:"↔️",title:"A small drift",lead:"Your trend moved a little, but it may still be normal scale noise."};
+          return {state:"negative",icon:"🧭",title:"Moving off course",lead:"Your rolling trend is moving away from maintenance."};
+        }
+        const towardGoal=target>0?actual: -actual, desired=Math.abs(target);
+        if(towardGoal>=Math.max(.1,desired-.2)) return {state:"positive",icon:"📈",title:"You’re making progress",lead:"Your rolling trend is moving toward your goal."};
+        if(towardGoal>-.1) return {state:"neutral",icon:"〰️",title:"Holding fairly steady",lead:"There is not a clear move toward or away from your goal yet."};
+        return {state:"negative",icon:"🧭",title:"Trending off course",lead:"Your rolling trend is currently moving away from your goal."};
+      }
+
+      function rateText(value){
+        if(Math.abs(value)<.025) return "Steady";
+        return `${value>0?"-":"+"}${Math.abs(value).toFixed(2)}% / week`;
+      }
+
+      function maybeShowWeeklyCheckin(){
+        if(!settings.sharedGoal||settingsBackdrop.classList.contains("goalWizardMode")) return;
+        const entries=activeWeightEntries(), milestone=entries.length;
+        if(milestone<7||milestone%7!==0||milestone<=settings.weeklyCheckinMilestone) return;
+        const trend=weeklyCheckinTrend(entries), target=Number(settings.sharedGoal.target_loss_pct_week)||0;
+        const verdict=weeklyCheckinVerdict(trend.actual,target);
+        settings.weeklyCheckinMilestone=milestone;
+        saveJSON(SETTINGS_KEY,settings);
+        weeklyCheckinBackdrop.dataset.state=verdict.state;
+        weeklyCheckinIcon.textContent=verdict.icon;
+        weeklyCheckinEyebrow.textContent=`Check-in · ${milestone} weigh-ins`;
+        weeklyCheckinTitle.textContent=verdict.title;
+        weeklyCheckinLead.textContent=verdict.lead;
+        weeklyCheckinActual.textContent=rateText(trend.actual);
+        weeklyCheckinTarget.textContent=rateText(target);
+        weeklyCheckinNote.textContent=trend.early
+          ? "This first check-in is an early signal from seven weigh-ins. It will become steadier as more data builds."
+          : "This is a rolling trend, not a judgment on any single weigh-in. No calorie goal changes were made.";
+        weeklyCheckinBackdrop.classList.add("show");
+        weeklyCheckinBackdrop.setAttribute("aria-hidden","false");
       }
 
       function renderAdaptiveCoaching(){
@@ -1248,13 +1344,16 @@
       }
 
       function autoSaveLocal(){
-        store.days[selectedDate] = normalizedDay(collectEditorData());
+        const priorWeight=Number(store.days[selectedDate]?.bodyWeight);
+        const nextDay=normalizedDay(collectEditorData()), nextWeight=Number(nextDay.bodyWeight);
+        store.days[selectedDate] = nextDay;
         baselineTestCompleted(selectedDate);
         saveJSON(STORE_KEY, store);
         renderHistory();
         renderWeightAverage();
         renderDashboard();
         updateWorkoutOptions();
+        if(Number.isFinite(nextWeight)&&nextWeight>=60&&nextWeight<=700&&nextWeight!==priorWeight) maybeShowWeeklyCheckin();
       }
 
       function queueAutoSave(){
@@ -2486,6 +2585,10 @@
       }, 25000);
 
       bw.addEventListener("input", () => { refreshGoalTexts(); updateWorkoutOptions(); queueAutoSave(); });
+      weeklyCheckinDone.addEventListener("click", () => {
+        weeklyCheckinBackdrop.classList.remove("show");
+        weeklyCheckinBackdrop.setAttribute("aria-hidden","true");
+      });
       [steps, cals, protein].forEach(inp => inp.addEventListener("input", () => { syncGoalTogglesFromInputs(); queueAutoSave(); }));
       activityChk.addEventListener("change", queueAutoSave);
 
