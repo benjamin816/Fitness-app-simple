@@ -356,7 +356,7 @@
     </div>
 
     <div id="syncStatus" class="footerSync">● syncing</div>
-    <div class="appVersion">Fitness Tracker · v2.5.5</div>
+    <div class="appVersion">Fitness Tracker · v2.5.6</div>
   </div>
 
   <div class="modalBackdrop" id="planBackdrop" aria-hidden="true">
@@ -408,7 +408,7 @@
         </div>
         <div id="wizardControl" class="wizardControl"></div>
         <div id="goalPreview" class="small" style="margin-top:12px"></div>
-        <div class="wizardNav"><button id="wizardBackBtn" class="wizardBack" type="button">← Back</button><button id="wizardNextBtn" class="wizardNext" type="button">Next →</button></div><div class="wizardVersion">Fitness Tracker · v2.5.5</div>
+        <div class="wizardNav"><button id="wizardBackBtn" class="wizardBack" type="button">← Back</button><button id="wizardNextBtn" class="wizardNext" type="button">Next →</button></div><div class="wizardVersion">Fitness Tracker · v2.5.6</div>
         <button id="saveGoalsBtn" class="primary" type="button" style="margin-top:12px">Save shared goals</button>
       </div>
       </div>
@@ -1720,12 +1720,18 @@
       async function initializeCloudSync(){
         setSyncStatus("● syncing");
         try{
+          const goalState=await cloudGet("getSharedState");
+          if(goalState?.ok&&goalState.shared&&Object.prototype.hasOwnProperty.call(goalState.shared,"goal")){
+            settings.sharedGoal=goalState.shared.goal||null;
+            clearCompletedWizardDraft(settings.sharedGoal);
+            saveJSON(SETTINGS_KEY,settings);
+          }
           const init = await cloudGet("init");
           if(init && init.ok){
             const s = init.settings || {};
             if(s.weight_increment_lb) settings.increment = Number(s.weight_increment_lb);
             if(s.time_increment_sec) settings.timeIncrementSec = Number(s.time_increment_sec);
-            if(init.shared && Object.prototype.hasOwnProperty.call(init.shared,"goal")) settings.sharedGoal = init.shared.goal || null;
+            if(init.shared && Object.prototype.hasOwnProperty.call(init.shared,"goal")){settings.sharedGoal = init.shared.goal || null;clearCompletedWizardDraft(settings.sharedGoal);}
             saveJSON(SETTINGS_KEY, settings);
           }
           const start = addDaysISO(todayISO(), -180);
@@ -1737,7 +1743,7 @@
             replaceLocalRangeWithCloud(start, end, range);
             const shared = await cloudGet("getSharedState");
             if(shared?.ok && shared.shared){
-              if(Object.prototype.hasOwnProperty.call(shared.shared,"goal")) settings.sharedGoal = shared.shared.goal || null;
+              if(Object.prototype.hasOwnProperty.call(shared.shared,"goal")){settings.sharedGoal = shared.shared.goal || null;clearCompletedWizardDraft(settings.sharedGoal);}
               const plans = await cloudGet("getPlannedDaytime", { start, end });
               plannedDaytime = Object.fromEntries((plans?.rows||[]).map(row=>[String(row.date),row]));
               saveJSON(SETTINGS_KEY,settings);
@@ -2221,6 +2227,11 @@
         goalAge.value=v.age||"";goalSex.value=v.sex||"male";goalHeight.value=v.height||"";goalWeight.value=v.weight||"";goalBodyFat.value=v.bodyFat||"";goalTargetBodyFat.value=v.targetBodyFat||"";goalPhysique.value=v.physique||"leaner";goalActivity.value=v.activity||"moderate";goalRate.value=v.rate||.7;goalPlannedSteps.value=v.steps||8000;goalWorkoutDays.value=v.workouts||2;
         wizardTouched=draft.touched||{};wizardStep=Number(draft.step)||0;return true;
       }
+      function clearCompletedWizardDraft(goal){
+        const draft=loadJSON(WIZARD_DRAFT_KEY,null),v=draft?.values;if(!v||!goal)return;
+        const matches=String(v.physique)===String(goal.physique_goal)&&Number(v.weight)===Number(goal.current_weight_lb)&&Number(v.steps)===Number(goal.planned_daily_steps)&&Number(v.workouts)===Number(goal.planned_strength_workouts_week);
+        if(matches)localStorage.removeItem(WIZARD_DRAFT_KEY);
+      }
 
       function wizardSteps(){
         const goal=goalPhysique.value;
@@ -2575,7 +2586,6 @@
       renderWeightAverage();
       renderDashboard();
       syncGoalTogglesFromInputs();
-      maybeOpenStarterGoals();
       initializeCloudSync();
     })();
   </script>
