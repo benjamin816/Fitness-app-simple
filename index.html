@@ -181,6 +181,9 @@
     .modalBackdrop.show{display:flex}
     .weeklyCheckinBackdrop{position:fixed;inset:0;z-index:1200;display:none;align-items:center;justify-content:center;padding:24px;background:linear-gradient(145deg,#6246e5,#9a6df5);color:#fff}
     .weeklyCheckinBackdrop.show{display:flex;animation:checkinFade .35s ease both}
+    .weeklyCheckinBackdrop[data-state="positive"]{background:linear-gradient(145deg,#11966c,#42ca92)}
+    .weeklyCheckinBackdrop[data-state="neutral"]{background:linear-gradient(145deg,#3678d4,#70a9ff)}
+    .weeklyCheckinBackdrop[data-state="negative"]{background:linear-gradient(145deg,#d6672c,#f3a34c)}
     .weeklyCheckinCard{width:min(560px,100%);text-align:center}
     .weeklyCheckinIcon{width:104px;height:104px;margin:0 auto 22px;display:grid;place-items:center;border-radius:34px;background:rgba(255,255,255,.18);font-size:52px;box-shadow:0 20px 45px rgba(30,16,88,.24);animation:checkinFloat 2.5s ease-in-out infinite}
     .weeklyCheckinEyebrow{text-transform:uppercase;letter-spacing:1.5px;font-size:12px;font-weight:900;color:rgba(255,255,255,.76)}
@@ -192,6 +195,11 @@
     .weeklyCheckinStat strong{font-size:22px}
     .weeklyCheckinNote{margin:0 0 22px;color:rgba(255,255,255,.74);font-size:12px;line-height:1.45}
     .weeklyCheckinDone{width:100%;padding:16px;border:0;background:#fff;color:#402d9e;font-weight:950;font-size:16px;box-shadow:0 12px 28px rgba(31,17,87,.22)}
+    .weeklyCheckinChoices{display:grid;gap:10px;margin:0 0 20px;text-align:left}
+    .weeklyCheckinChoice{width:100%;padding:14px 16px;border:2px solid rgba(255,255,255,.24);border-radius:18px;background:rgba(255,255,255,.12);color:#fff;box-shadow:none;text-align:left}
+    .weeklyCheckinChoice strong{display:block;font-size:15px}.weeklyCheckinChoice small{display:block;margin-top:4px;color:rgba(255,255,255,.76);line-height:1.35}
+    .weeklyCheckinChoice.selected{background:#fff;color:#3f2d98;border-color:#fff}.weeklyCheckinChoice.selected small{color:#71669a}
+    .weeklyCheckinBack{display:none;width:100%;margin-top:10px;padding:8px;border:0;background:transparent;color:rgba(255,255,255,.82);box-shadow:none}
     @keyframes checkinFade{from{opacity:0}to{opacity:1}}@keyframes checkinFloat{50%{transform:translateY(-8px) rotate(2deg)}}
     .modal{
       width:min(980px,100%);max-height:86vh;overflow:auto;background:#fff;border:1px solid var(--line);
@@ -370,7 +378,7 @@
     </div>
 
     <div id="syncStatus" class="footerSync">● syncing</div>
-    <div class="appVersion">Fitness Tracker · v2.5.7</div>
+    <div class="appVersion">Fitness Tracker · v2.6.0</div>
   </div>
 
   <div class="weeklyCheckinBackdrop" id="weeklyCheckinBackdrop" aria-hidden="true">
@@ -379,12 +387,14 @@
       <div class="weeklyCheckinEyebrow" id="weeklyCheckinEyebrow">Weekly check-in</div>
       <h2 id="weeklyCheckinTitle">You’re on track</h2>
       <p class="weeklyCheckinLead" id="weeklyCheckinLead"></p>
-      <div class="weeklyCheckinStats">
+      <div class="weeklyCheckinStats" id="weeklyCheckinStats">
         <div class="weeklyCheckinStat"><small>Your trend</small><strong id="weeklyCheckinActual">—</strong></div>
         <div class="weeklyCheckinStat"><small>Your target</small><strong id="weeklyCheckinTarget">—</strong></div>
       </div>
+      <div class="weeklyCheckinChoices" id="weeklyCheckinChoices"></div>
       <p class="weeklyCheckinNote" id="weeklyCheckinNote"></p>
-      <button class="weeklyCheckinDone" id="weeklyCheckinDone" type="button">Got it</button>
+      <button class="weeklyCheckinDone" id="weeklyCheckinDone" type="button">Continue</button>
+      <button class="weeklyCheckinBack" id="weeklyCheckinBack" type="button">← Back</button>
     </section>
   </div>
 
@@ -437,7 +447,7 @@
         </div>
         <div id="wizardControl" class="wizardControl"></div>
         <div id="goalPreview" class="small" style="margin-top:12px"></div>
-        <div class="wizardNav"><button id="wizardBackBtn" class="wizardBack" type="button">← Back</button><button id="wizardNextBtn" class="wizardNext" type="button">Next →</button></div><div class="wizardVersion">Fitness Tracker · v2.5.7</div>
+        <div class="wizardNav"><button id="wizardBackBtn" class="wizardBack" type="button">← Back</button><button id="wizardNextBtn" class="wizardNext" type="button">Next →</button></div><div class="wizardVersion">Fitness Tracker · v2.6.0</div>
         <button id="saveGoalsBtn" class="primary" type="button" style="margin-top:12px">Save shared goals</button>
       </div>
       </div>
@@ -498,7 +508,8 @@
         timeIncrementSec: 5,
         baselines: {},
         sharedGoal: null,
-        weeklyCheckinMilestone: 0
+        weeklyCheckinMilestone: 0,
+        weeklyCheckins: []
       };
 
       ["ben_tracker_v11_store","ben_tracker_v11_settings","ben_tracker_v11_timers","ben_tracker_v11_cloud"].forEach(key=>localStorage.removeItem(key));
@@ -530,6 +541,7 @@
       settings.baselines = migrateBaselineDataKeys(settings.baselines || {});
       settings.sharedGoal = settings.sharedGoal && typeof settings.sharedGoal === "object" ? settings.sharedGoal : null;
       settings.weeklyCheckinMilestone = Math.max(0, Number(settings.weeklyCheckinMilestone) || 0);
+      settings.weeklyCheckins = Array.isArray(settings.weeklyCheckins) ? settings.weeklyCheckins : [];
 
       (function ensureDumbbellBicepCurl(){
         if(!Array.isArray(WORKOUTS?.C)) return;
@@ -715,7 +727,8 @@
       const eveningEstimate = $("eveningEstimate");
       const weeklyCheckinBackdrop = $("weeklyCheckinBackdrop"), weeklyCheckinIcon = $("weeklyCheckinIcon");
       const weeklyCheckinEyebrow = $("weeklyCheckinEyebrow"), weeklyCheckinTitle = $("weeklyCheckinTitle"), weeklyCheckinLead = $("weeklyCheckinLead");
-      const weeklyCheckinActual = $("weeklyCheckinActual"), weeklyCheckinTarget = $("weeklyCheckinTarget"), weeklyCheckinNote = $("weeklyCheckinNote"), weeklyCheckinDone = $("weeklyCheckinDone");
+      const weeklyCheckinStats = $("weeklyCheckinStats"), weeklyCheckinChoices = $("weeklyCheckinChoices");
+      const weeklyCheckinActual = $("weeklyCheckinActual"), weeklyCheckinTarget = $("weeklyCheckinTarget"), weeklyCheckinNote = $("weeklyCheckinNote"), weeklyCheckinDone = $("weeklyCheckinDone"), weeklyCheckinBack = $("weeklyCheckinBack");
       const goalAge = $("goalAge"), goalSex = $("goalSex"), goalHeight = $("goalHeight"), goalWeight = $("goalWeight");
       const goalBodyFat = $("goalBodyFat"), goalTargetBodyFat = $("goalTargetBodyFat"), goalPhysique = $("goalPhysique");
       const goalActivity = $("goalActivity"), goalRate = $("goalRate"), goalPlannedSteps = $("goalPlannedSteps"), goalWorkoutDays = $("goalWorkoutDays"), goalPreview = $("goalPreview"), saveGoalsBtn = $("saveGoalsBtn");
@@ -757,6 +770,8 @@
       let audioCtx = null;
       let plannedDaytime = {};
       let activeWorkoutIndex = 0;
+      let activeWeeklyCheckin = null;
+      let weeklyCheckinStep = 0;
 
       function isoLocalDate(d){
         const tzOffset = d.getTimezoneOffset();
@@ -966,54 +981,132 @@
         return `${value>0?"-":"+"}${Math.abs(value).toFixed(2)}% / week`;
       }
 
+      function loggedWorkoutsInWeek(endDate){
+        let count=0;
+        for(let i=0;i<7;i++) if(isMeaningfulWorkoutLog(store.days[addDaysISO(endDate,-i)]?.workoutLog)) count++;
+        return count;
+      }
+
+      function setWeeklyChoices(options,selected){
+        weeklyCheckinChoices.innerHTML=options.map(option=>`<button class="weeklyCheckinChoice${selected===option.value?" selected":""}" type="button" data-value="${option.value}"><strong>${option.label}</strong><small>${option.detail}</small></button>`).join("");
+        weeklyCheckinChoices.querySelectorAll("button").forEach(button=>button.onclick=()=>{
+          const value=button.dataset.value;
+          if(weeklyCheckinStep===1) activeWeeklyCheckin.stepsRange=value;
+          if(weeklyCheckinStep===2) activeWeeklyCheckin.workoutAnswer=value;
+          if(weeklyCheckinStep===3) activeWeeklyCheckin.foodAnswer=value;
+          weeklyCheckinChoices.querySelectorAll("button").forEach(item=>item.classList.toggle("selected",item===button));
+          weeklyCheckinDone.disabled=false;
+        });
+      }
+
+      function weeklyContext(record){
+        const ranges={under4:[0,3999],r4to6:[4000,5999],r6to8:[6000,7999],r8to10:[8000,9999],over10:[10000,16000]};
+        const chosen=ranges[record.stepsRange]||[0,0], planned=Number(record.plannedSteps??settings.sharedGoal?.planned_daily_steps)||0;
+        const stepsOnPlan=chosen[1]>=Math.max(0,planned-750);
+        const workoutsOnPlan=record.workoutAnswer==="met_unlogged"||(record.workoutAnswer==="accurate"&&record.loggedWorkouts>=record.plannedWorkouts);
+        return {stepsOnPlan,workoutsOnPlan,foodOnPlan:record.foodAnswer==="close"};
+      }
+
+      function energyGapEstimate(record){
+        const latest=activeWeightEntries().slice(-7), weight=latest.reduce((sum,item)=>sum+item.weight,0)/latest.length;
+        return ((record.targetRate-record.actualRate)/100)*weight*3500/7;
+      }
+
+      function energyRangeText(value){
+        const amount=Math.abs(value);
+        if(amount<75) return "less than about 100 calories/day";
+        const center=Math.max(100,Math.round(amount/50)*50), low=Math.max(50,center-50), high=center+50;
+        return `roughly ${low}–${high} calories/day`;
+      }
+
+      function buildWeeklyResult(record){
+        const context=weeklyContext(record), gap=energyGapEstimate(record), current=Number(settings.sharedGoal.calorie_target);
+        record.estimatedDailyGap=Math.round(gap/25)*25;
+        record.stepsOnPlan=context.stepsOnPlan; record.workoutsOnPlan=context.workoutsOnPlan; record.foodOnPlan=context.foodOnPlan;
+        record.recommendedCalorieTarget=null;
+        const direction=gap>0?"higher":gap<0?"lower":"close to";
+        if(!context.stepsOnPlan) return {title:"Keep the target for now",icon:"🚶",lead:"Your reported steps were below the movement plan, so weight alone cannot tell us that your macros are wrong.",note:"Return to your planned activity if practical, then collect another week. No macro or activity goal was changed."};
+        if(!context.workoutsOnPlan) return {title:"Keep the target for now",icon:"🏋️",lead:"The workout goal was not confirmed this week. Strength workouts are not precise calorie counters, but this is not a clean test of the full plan.",note:"Complete another consistent week before considering a macro adjustment. Nothing was changed."};
+        if(!context.foodOnPlan) return {title:"The target may be fine",icon:"🍽️",lead:`Your weight trend suggests your average energy intake was ${energyRangeText(gap)} ${direction} than the plan assumed. Your reported eating pattern could explain that difference.`,note:"This is a trend estimate—not an exact food log. Keep the current target and gather another week."};
+        const recent=[...settings.weeklyCheckins.slice(-2),record];
+        const consistent=record.milestone>=21&&recent.length>=3&&recent.every(item=>weeklyContext(item).stepsOnPlan&&weeklyContext(item).workoutsOnPlan&&weeklyContext(item).foodOnPlan);
+        if(!consistent) return {title:"One more week of evidence",icon:"🧭",lead:`With activity and eating reportedly near plan, your energy balance appears ${energyRangeText(gap)} ${direction} than expected.`,note:"That could still be normal noise or a difference between planned and actual portions. The app needs three consistent check-ins before recommending a target change."};
+        if(Math.abs(gap)<100) return {title:"Stay the course",icon:"✅",lead:"Your activity, plan adherence, and rolling weight trend are close enough to the intended result.",note:"No goal change is needed."};
+        const recommended=gap>0?Math.max(1200,current-125):current+125;
+        record.recommendedCalorieTarget=recommended;
+        return {title:"A small adjustment may help",icon:"🎯",lead:`Across consistent check-ins, your energy balance appears ${energyRangeText(gap)} ${direction} than expected. This may reflect an imperfect maintenance estimate or small untracked portion differences.`,note:`You can change the shared target from ${current.toLocaleString()} to ${recommended.toLocaleString()} calories, or keep it unchanged.`};
+      }
+
+      function renderWeeklyCheckinStep(){
+        const record=activeWeeklyCheckin;
+        delete weeklyCheckinBackdrop.dataset.state;
+        weeklyCheckinEyebrow.textContent=`Check-in · ${record.milestone} weigh-ins`;
+        weeklyCheckinBack.style.display=weeklyCheckinStep>0&&weeklyCheckinStep<4?"block":"none";
+        weeklyCheckinStats.style.display=weeklyCheckinStep===0?"grid":"none";
+        weeklyCheckinChoices.innerHTML="";
+        weeklyCheckinDone.disabled=false;
+        if(weeklyCheckinStep===0){
+          const verdict=weeklyCheckinVerdict(record.actualRate,record.targetRate);
+          weeklyCheckinBackdrop.dataset.state=verdict.state;
+          weeklyCheckinIcon.textContent=verdict.icon; weeklyCheckinTitle.textContent=verdict.title; weeklyCheckinLead.textContent=verdict.lead;
+          weeklyCheckinActual.textContent=rateText(record.actualRate); weeklyCheckinTarget.textContent=rateText(record.targetRate);
+          weeklyCheckinNote.textContent=record.early?"This is an early signal. Add three quick context checks so the app does not mistake activity or eating variation for a bad target.":"Weight is only one clue. Add three quick context checks before the app interprets this trend.";
+          weeklyCheckinDone.textContent="Add context →";
+        }else if(weeklyCheckinStep===1){
+          weeklyCheckinIcon.textContent="🚶"; weeklyCheckinTitle.textContent="Average daily steps?"; weeklyCheckinLead.textContent="Choose the closest range for the last seven days. A rough phone or watch average is enough."; weeklyCheckinNote.textContent=`Your current movement plan is about ${Number(settings.sharedGoal.planned_daily_steps||0).toLocaleString()} steps/day.`;
+          setWeeklyChoices([{value:"under4",label:"Under 4,000",detail:"Mostly seated with limited walking."},{value:"r4to6",label:"4,000–5,999",detail:"Some routine walking, below a typical active day."},{value:"r6to8",label:"6,000–7,999",detail:"A moderately mobile week."},{value:"r8to10",label:"8,000–9,999",detail:"A consistently active week."},{value:"over10",label:"10,000+",detail:"High daily walking volume."}],record.stepsRange); weeklyCheckinDone.textContent="Next →"; weeklyCheckinDone.disabled=!record.stepsRange;
+        }else if(weeklyCheckinStep===2){
+          weeklyCheckinIcon.textContent="🏋️"; weeklyCheckinTitle.textContent="Workout check"; weeklyCheckinLead.textContent=`Fitness Tracker found exercise data on ${record.loggedWorkouts} workout ${record.loggedWorkouts===1?"day":"days"}. Your plan called for ${record.plannedWorkouts}.`; weeklyCheckinNote.textContent="Confirm the record so a partial or unlogged workout does not distort the review.";
+          setWeeklyChoices([{value:"accurate",label:"The app record is accurate",detail:"Use the workouts currently logged."},{value:"met_unlogged",label:"I met the goal",detail:"I completed the planned workouts, but some are not logged here."},{value:"missed",label:"I missed the goal",detail:"I completed fewer workouts than planned."}],record.workoutAnswer); weeklyCheckinDone.textContent="Next →"; weeklyCheckinDone.disabled=!record.workoutAnswer;
+        }else if(weeklyCheckinStep===3){
+          weeklyCheckinIcon.textContent="🍽️"; weeklyCheckinTitle.textContent="How closely did you eat to plan?"; weeklyCheckinLead.textContent="No calorie reconstruction needed. Choose the statement that best describes the week."; weeklyCheckinNote.textContent="This does not tell the app your exact intake—it only prevents false confidence.";
+          setWeeklyChoices([{value:"close",label:"Close most days",detail:"Daytime meals and the evening budget were generally followed."},{value:"mixed",label:"Mixed or unsure",detail:"Some days were close and others were difficult to judge."},{value:"over",label:"Often more than planned",detail:"Portions, snacks, drinks, or dinner were often above the intended budget."},{value:"under",label:"Often less than planned",detail:"I regularly ate less than the intended budget."}],record.foodAnswer); weeklyCheckinDone.textContent="See my review →"; weeklyCheckinDone.disabled=!record.foodAnswer;
+        }else{
+          const result=record.result||buildWeeklyResult(record);
+          weeklyCheckinIcon.textContent=result.icon; weeklyCheckinTitle.textContent=result.title; weeklyCheckinLead.textContent=result.lead; weeklyCheckinNote.textContent=result.note;
+          weeklyCheckinDone.textContent=record.recommendedCalorieTarget?`Accept ${record.recommendedCalorieTarget.toLocaleString()} calorie target`:"Done";
+          weeklyCheckinBack.style.display=record.recommendedCalorieTarget?"block":"none";
+          weeklyCheckinBack.textContent=record.recommendedCalorieTarget?"Keep current goal":"← Back";
+        }
+      }
+
       function maybeShowWeeklyCheckin(){
         if(!settings.sharedGoal||settingsBackdrop.classList.contains("goalWizardMode")) return;
         const entries=activeWeightEntries(), milestone=entries.length;
         if(milestone<7||milestone%7!==0||milestone<=settings.weeklyCheckinMilestone) return;
         const trend=weeklyCheckinTrend(entries), target=Number(settings.sharedGoal.target_loss_pct_week)||0;
-        const verdict=weeklyCheckinVerdict(trend.actual,target);
-        settings.weeklyCheckinMilestone=milestone;
-        saveJSON(SETTINGS_KEY,settings);
-        weeklyCheckinBackdrop.dataset.state=verdict.state;
-        weeklyCheckinIcon.textContent=verdict.icon;
-        weeklyCheckinEyebrow.textContent=`Check-in · ${milestone} weigh-ins`;
-        weeklyCheckinTitle.textContent=verdict.title;
-        weeklyCheckinLead.textContent=verdict.lead;
-        weeklyCheckinActual.textContent=rateText(trend.actual);
-        weeklyCheckinTarget.textContent=rateText(target);
-        weeklyCheckinNote.textContent=trend.early
-          ? "This first check-in is an early signal from seven weigh-ins. It will become steadier as more data builds."
-          : "This is a rolling trend, not a judgment on any single weigh-in. No calorie goal changes were made.";
+        const endDate=entries[entries.length-1].date;
+        activeWeeklyCheckin={milestone,endDate,actualRate:trend.actual,targetRate:target,early:trend.early,loggedWorkouts:loggedWorkoutsInWeek(endDate),plannedWorkouts:Number(settings.sharedGoal.planned_strength_workouts_week)||0,plannedSteps:Number(settings.sharedGoal.planned_daily_steps)||0,calorieTarget:Number(settings.sharedGoal.calorie_target)||0,stepsRange:"",workoutAnswer:"",foodAnswer:"",completedAt:""};
+        weeklyCheckinStep=0;
+        renderWeeklyCheckinStep();
         weeklyCheckinBackdrop.classList.add("show");
         weeklyCheckinBackdrop.setAttribute("aria-hidden","false");
       }
 
+      function resumePendingWeeklyDecision(){
+        const latest=settings.weeklyCheckins[settings.weeklyCheckins.length-1];
+        if(!latest?.recommendedCalorieTarget||latest.decision) return false;
+        activeWeeklyCheckin=latest; weeklyCheckinStep=4; renderWeeklyCheckinStep();
+        weeklyCheckinBackdrop.classList.add("show"); weeklyCheckinBackdrop.setAttribute("aria-hidden","false");
+        return true;
+      }
+
       function renderAdaptiveCoaching(){
-        const goal=settings.sharedGoal, trend=weightTrendAssessment();
-        if(!goal){ progressCheck.innerHTML="<strong>📈 Progress check</strong><div class='small'>Set your goals first.</div>"; eveningEstimate.innerHTML="<strong>🌙 Evening estimate</strong><div class='small'>Unlocks after a few weeks of weigh-ins.</div>"; return; }
-        if(!trend){ progressCheck.innerHTML="<strong>📈 Building your trend</strong><div class='small'>Keep weighing in. Coaching starts after about two weeks.</div>"; eveningEstimate.innerHTML="<strong>🌙 Evening estimate</strong><div class='small'>Waiting for enough trend data.</div>"; return; }
-        const target=Number(goal.target_loss_pct_week), actual=trend.actual, current=Number(goal.calorie_target);
-        let rec=current, message="On track — no change.";
-        if(actual<target-.2){rec=Math.max(1200,current-125);message=`Scale trend is moving up too quickly: ${current.toLocaleString()} → ${rec.toLocaleString()} cal`;}
-        else if(actual>target+.2){rec=current+125;message=`Scale trend is moving down too quickly: ${current.toLocaleString()} → ${rec.toLocaleString()} cal`;}
-        const rateLabel=value=>Math.abs(value)<.01?"steady":value>0?`-${value.toFixed(2)}%`:`+${Math.abs(value).toFixed(2)}%`;
-        progressCheck.innerHTML=`<strong>📈 ${message}</strong><div class="small" style="margin-top:6px">Target ${rateLabel(target)} · Actual ${rateLabel(actual)} / week</div>${rec!==current?`<div class="progressDecision"><button class="primary" id="acceptAdjustment" type="button">Accept</button><button id="keepAdjustment" type="button">Keep goal</button></div>`:""}`;
-        if(rec!==current){
-          $("acceptAdjustment").onclick=()=>decideAdjustment(true,rec,trend);
-          $("keepAdjustment").onclick=()=>decideAdjustment(false,rec,trend);
-        }
-        const dayPlan=plannedDaytime[selectedDate], weight=trend.latestAvg;
-        if(!dayPlan){eveningEstimate.innerHTML="<strong>🌙 Evening estimate</strong><div class='small'>Waiting for a Morning Macros plan.</div>";return;}
-        const deviation=Math.round((((target-actual)/100)*weight*3500/7)/50)*50;
-        const intended=Math.max(0,current-Number(dayPlan.planned_calories||0));
-        const label=Math.abs(deviation)<100?"About right ✓":deviation>0?`~${Math.abs(deviation)} cal/day high`:`~${Math.abs(deviation)} cal/day low`;
-        eveningEstimate.innerHTML=`<strong>🌙 ${label}</strong><div class="small" style="margin-top:6px">Evening budget ~${intended.toLocaleString()} cal · ${trend.days}-day estimate</div>`;
+        const goal=settings.sharedGoal, latest=settings.weeklyCheckins[settings.weeklyCheckins.length-1];
+        if(!goal){progressCheck.innerHTML="<strong>📈 Progress check</strong><div class='small'>Set your goals first.</div>";eveningEstimate.innerHTML="<strong>🌙 Intake estimate</strong><div class='small'>Unlocks with weekly reviews.</div>";return;}
+        if(!latest){progressCheck.innerHTML="<strong>📈 Building your trend</strong><div class='small'>Your first guided review appears after seven weigh-ins.</div>";eveningEstimate.innerHTML="<strong>🌙 Intake estimate</strong><div class='small'>Waiting for weight, activity, workout, and plan context.</div>";return;}
+        const verdict=weeklyCheckinVerdict(Number(latest.actualRate),Number(latest.targetRate));
+        progressCheck.innerHTML=`<strong>${verdict.icon} ${verdict.title}</strong><div class="small" style="margin-top:6px">Latest review: ${rateText(Number(latest.actualRate))} · Target ${rateText(Number(latest.targetRate))}</div>`;
+        const context=weeklyContext(latest), gap=Number(latest.estimatedDailyGap)||0;
+        if(!context.stepsOnPlan||!context.workoutsOnPlan){eveningEstimate.innerHTML="<strong>🌙 Not enough context to isolate macros</strong><div class='small' style='margin-top:6px'>Activity or workout adherence differed from plan, so the app kept your targets unchanged.</div>";return;}
+        const direction=gap>0?"above":gap<0?"below":"close to";
+        eveningEstimate.innerHTML=`<strong>🌙 Estimated energy balance: ${energyRangeText(gap)} ${direction} plan</strong><div class="small" style="margin-top:6px">Trend-based range only—not an exact calorie log. Your reported food adherence is included.</div>`;
       }
 
       async function decideAdjustment(accept,recommended,trend){
-        const res=await cloudPost({action:"decideGoalAdjustment",accept,expectedGoalVersion:settings.sharedGoal.goal_version,recommendedCalorieTarget:recommended,targetLossPctWeek:settings.sharedGoal.target_loss_pct_week,actualLossPctWeek:trend.actual,trendStartDate:trend.start,trendEndDate:trend.end,notes:"Trend-based recommendation; 125 calorie step."});
-        if(res?.ok&&res.shared?.goal){settings.sharedGoal=res.shared.goal;saveJSON(SETTINGS_KEY,settings);refreshGoalTexts();renderAdaptiveCoaching();setSyncStatus("● synced");}
-        else setSyncStatus("● sync failed");
+        const res=await cloudPost({action:"decideGoalAdjustment",accept,expectedGoalVersion:settings.sharedGoal.goal_version,recommendedCalorieTarget:recommended,targetLossPctWeek:settings.sharedGoal.target_loss_pct_week,actualLossPctWeek:trend.actual,trendStartDate:trend.start,trendEndDate:trend.end,notes:trend.notes||"Trend-based recommendation; 125 calorie step."});
+        if(res?.ok&&res.shared?.goal){settings.sharedGoal=res.shared.goal;saveJSON(SETTINGS_KEY,settings);refreshGoalTexts();renderAdaptiveCoaching();setSyncStatus("● synced");return true;}
+        setSyncStatus("● sync failed"); return false;
       }
 
       function getLog(raw){
@@ -2585,9 +2678,36 @@
       }, 25000);
 
       bw.addEventListener("input", () => { refreshGoalTexts(); updateWorkoutOptions(); queueAutoSave(); });
-      weeklyCheckinDone.addEventListener("click", () => {
-        weeklyCheckinBackdrop.classList.remove("show");
-        weeklyCheckinBackdrop.setAttribute("aria-hidden","true");
+      function closeWeeklyCheckin(){weeklyCheckinBackdrop.classList.remove("show");weeklyCheckinBackdrop.setAttribute("aria-hidden","true");activeWeeklyCheckin=null;renderAdaptiveCoaching();}
+      weeklyCheckinDone.addEventListener("click", async () => {
+        if(!activeWeeklyCheckin) return;
+        if(weeklyCheckinStep<3){weeklyCheckinStep++;renderWeeklyCheckinStep();return;}
+        if(weeklyCheckinStep===3){
+          activeWeeklyCheckin.completedAt=new Date().toISOString();
+          activeWeeklyCheckin.result=buildWeeklyResult(activeWeeklyCheckin);
+          settings.weeklyCheckins.push(activeWeeklyCheckin);
+          settings.weeklyCheckins=settings.weeklyCheckins.slice(-12);
+          settings.weeklyCheckinMilestone=activeWeeklyCheckin.milestone;
+          saveJSON(SETTINGS_KEY,settings);
+          weeklyCheckinStep=4;renderWeeklyCheckinStep();return;
+        }
+        if(activeWeeklyCheckin.recommendedCalorieTarget){
+          weeklyCheckinDone.disabled=true;
+          const ok=await decideAdjustment(true,activeWeeklyCheckin.recommendedCalorieTarget,{actual:activeWeeklyCheckin.actualRate,start:addDaysISO(activeWeeklyCheckin.endDate,-13),end:activeWeeklyCheckin.endDate,notes:"Accepted after three weekly reviews with steps, workouts, and general macro-plan adherence confirmed."});
+          weeklyCheckinDone.disabled=false;
+          if(!ok) return;
+          activeWeeklyCheckin.decision="accepted";saveJSON(SETTINGS_KEY,settings);
+        }
+        closeWeeklyCheckin();
+      });
+      weeklyCheckinBack.addEventListener("click", async () => {
+        if(!activeWeeklyCheckin) return;
+        if(weeklyCheckinStep===4&&activeWeeklyCheckin.recommendedCalorieTarget){
+          weeklyCheckinBack.disabled=true;
+          await decideAdjustment(false,activeWeeklyCheckin.recommendedCalorieTarget,{actual:activeWeeklyCheckin.actualRate,start:addDaysISO(activeWeeklyCheckin.endDate,-13),end:activeWeeklyCheckin.endDate,notes:"Kept current target after reviewing steps, workouts, and general macro-plan adherence."});
+          weeklyCheckinBack.disabled=false;activeWeeklyCheckin.decision="kept";saveJSON(SETTINGS_KEY,settings);closeWeeklyCheckin();return;
+        }
+        if(weeklyCheckinStep>0){weeklyCheckinStep--;renderWeeklyCheckinStep();}
       });
       [steps, cals, protein].forEach(inp => inp.addEventListener("input", () => { syncGoalTogglesFromInputs(); queueAutoSave(); }));
       activityChk.addEventListener("change", queueAutoSave);
@@ -2690,6 +2810,7 @@
       renderDashboard();
       syncGoalTogglesFromInputs();
       initializeCloudSync();
+      setTimeout(()=>{if(!weeklyCheckinBackdrop.classList.contains("show")&&!resumePendingWeeklyDecision()) maybeShowWeeklyCheckin();},2500);
     })();
   </script>
 </body>
