@@ -2598,7 +2598,16 @@
 
       function startGoalWizard(force=false){
         forcedGoalSetup=!!force;
-        populateGoalForm();if(!restoreWizardDraft()){wizardTouched=settings.sharedGoal?{sex:true,height:true,weight:true,goal:true,activity:true,pace:true,movementChoice:"custom",bodyfatIndex:undefined,targetIndex:undefined}:{};wizardStep=0;}renderGoalWizard();
+        populateGoalForm();
+        if(forcedGoalSetup){
+          localStorage.removeItem(WIZARD_DRAFT_KEY);
+          wizardTouched={};
+          wizardStep=0;
+        }else if(!restoreWizardDraft()){
+          wizardTouched=settings.sharedGoal?{sex:true,height:true,weight:true,goal:true,activity:true,pace:true,movementChoice:"custom",bodyfatIndex:undefined,targetIndex:undefined}:{};
+          wizardStep=0;
+        }
+        renderGoalWizard();
       }
 
       function exitGoalWizard(){
@@ -2871,6 +2880,7 @@
       renderWeightAverage();
       renderDashboard();
       syncGoalTogglesFromInputs();
+      if(needsForcedGoalSetup()) maybeOpenStarterGoals();
       initializeCloudSync();
       flushWeeklyOutbox();
       window.addEventListener("online",flushWeeklyOutbox);
