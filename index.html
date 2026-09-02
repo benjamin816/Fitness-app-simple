@@ -380,7 +380,7 @@
     </div>
 
     <div id="syncStatus" class="footerSync">● syncing</div>
-    <div class="appVersion">Fitness Tracker · v3.0.3</div>
+    <div class="appVersion">Fitness Tracker · v3.0.4</div>
   </div>
 
   <div class="weeklyCheckinBackdrop" id="weeklyCheckinBackdrop" aria-hidden="true">
@@ -450,12 +450,17 @@
         </div>
         <div id="wizardControl" class="wizardControl"></div>
         <div id="goalPreview" class="small" style="margin-top:12px"></div>
-        <div class="wizardNav"><button id="wizardBackBtn" class="wizardBack" type="button">← Back</button><button id="wizardNextBtn" class="wizardNext" type="button">Next →</button></div><div class="wizardVersion">Fitness Tracker · v3.0.3</div>
+        <div class="wizardNav"><button id="wizardBackBtn" class="wizardBack" type="button">← Back</button><button id="wizardNextBtn" class="wizardNext" type="button">Next →</button></div><div class="wizardVersion">Fitness Tracker · v3.0.4</div>
         <button id="saveGoalsBtn" class="primary" type="button" style="margin-top:12px">Save shared goals</button>
       </div>
       </div>
 
       <div class="settingsExtras">
+      <div class="baselineBox">
+        <strong>Health goals</strong>
+        <div class="small" style="margin-top:6px">Update the shared targets used by Fitness Tracker and Morning Macros.</div>
+        <div class="btns" style="margin-top:10px"><button id="editGoalsBtn" type="button">Edit health goals</button></div>
+      </div>
       <div hidden><input id="setStepsGoal"><input id="setCalsGoal"><input id="setProteinPerLb" value="1"><span id="proteinPerLbHint"></span><span id="derivedProteinGoal"></span></div>
 
       <div class="twoCol" style="margin-top:12px">
@@ -474,6 +479,15 @@
         Toggle means an input exists. Turning an active toggle off clears the input. Turning an inactive toggle on fills the exact goal.
       </div>
 
+      <div class="hr"></div>
+      <div class="baselineBox" id="checkinPreviewBox">
+        <strong>Preview check-ins</strong>
+        <div class="small" style="margin-top:6px">Run the real check-in screens with sample data. Previews never save records or change your goals.</div>
+        <div class="btns" style="margin-top:10px">
+          <button id="previewWeeklyBtn" type="button">Preview weekly</button>
+          <button id="previewMonthlyBtn" type="button">Preview monthly</button>
+        </div>
+      </div>
       <div class="hr"></div>
       <button id="resetSettingsBtn" class="danger" type="button">Reset settings to defaults</button>
       <div class="hr"></div>
@@ -759,6 +773,9 @@
       const setIncrement = $("setIncrement");
       const setTimeIncrement = $("setTimeIncrement");
       const resetSettingsBtn = $("resetSettingsBtn");
+      const editGoalsBtn = $("editGoalsBtn");
+      const previewWeeklyBtn = $("previewWeeklyBtn");
+      const previewMonthlyBtn = $("previewMonthlyBtn");
       const purgeStartBtn = $("purgeStartBtn");
       const purgeConfirmWrap = $("purgeConfirmWrap");
       const purgeAcknowledge = $("purgeAcknowledge");
@@ -1066,7 +1083,7 @@
       function renderWeeklyCheckinStep(){
         const record=activeWeeklyCheckin;
         delete weeklyCheckinBackdrop.dataset.state;
-        weeklyCheckinEyebrow.textContent=`Check-in · ${record.milestone} weigh-ins`;
+        weeklyCheckinEyebrow.textContent=record.preview?`${record.forceWaist?"Monthly":"Weekly"} preview · nothing will be saved`:`Check-in · ${record.milestone} weigh-ins`;
         weeklyCheckinBack.style.display=weeklyCheckinStep>0&&weeklyCheckinStep<4?"block":"none";
         weeklyCheckinStats.style.display=weeklyCheckinStep===0?"grid":"none";
         weeklyCheckinChoices.innerHTML="";
@@ -1087,17 +1104,30 @@
         }else if(weeklyCheckinStep===3){
           weeklyCheckinIcon.textContent="🍽️"; weeklyCheckinTitle.textContent="How closely did you eat to plan?"; weeklyCheckinLead.textContent="No calorie reconstruction needed. Choose the statement that best describes the week."; weeklyCheckinNote.textContent="This does not tell the app your exact intake—it only prevents false confidence.";
           setWeeklyChoices([{value:"close",label:"Close most days",detail:"Daytime meals and the evening budget were generally followed."},{value:"mixed",label:"Mixed or unsure",detail:"Some days were close and others were difficult to judge."},{value:"over",label:"Often more than planned",detail:"Portions, snacks, drinks, or dinner were often above the intended budget."},{value:"under",label:"Often less than planned",detail:"I regularly ate less than the intended budget."}],record.foodAnswer); weeklyCheckinDone.textContent="See my review →"; weeklyCheckinDone.disabled=!record.foodAnswer;
-          if(waistCheckDue(record.endDate)){
+          if(record.forceWaist||waistCheckDue(record.endDate)){
             weeklyCheckinChoices.insertAdjacentHTML("beforeend",`<label class="weeklyCheckinChoice"><strong>Monthly waist check (optional)</strong><small>Relaxed, after a normal exhale, at the same abdominal location.</small><input id="weeklyWaistInput" type="number" inputmode="decimal" min="18" max="80" step="0.25" value="${record.waistIn||""}" placeholder="Inches"></label>`);
             $("weeklyWaistInput").oninput=e=>record.waistIn=e.target.value;
           }
         }else{
           const result=record.result||buildWeeklyResult(record);
           weeklyCheckinIcon.textContent=result.icon; weeklyCheckinTitle.textContent=result.title; weeklyCheckinLead.textContent=result.lead; weeklyCheckinNote.textContent=result.note;
-          weeklyCheckinDone.textContent=record.recommendedCalorieTarget?`Schedule ${record.recommendedCalorieTarget.toLocaleString()} for Monday`:"Done";
-          weeklyCheckinBack.style.display=record.recommendedCalorieTarget?"block":"none";
+          weeklyCheckinDone.textContent=record.preview?"Close preview":record.recommendedCalorieTarget?`Schedule ${record.recommendedCalorieTarget.toLocaleString()} for Monday`:"Done";
+          weeklyCheckinBack.style.display=!record.preview&&record.recommendedCalorieTarget?"block":"none";
           weeklyCheckinBack.textContent=record.recommendedCalorieTarget?"Keep current goal":"← Back";
         }
+      }
+
+      function launchCheckinPreview(monthly=false){
+        if(!settings.sharedGoal){alert("Complete Set My Goals before previewing a check-in.");return;}
+        const goal=settings.sharedGoal,target=Number(goal.target_loss_pct_week)||0;
+        const actual=goal.physique_goal==="build"?Math.max(0,target*.45):goal.physique_goal==="maintain"?.15:Math.max(0,target*.45);
+        const plannedWorkouts=Number(goal.planned_strength_workouts_week)||2;
+        activeWeeklyCheckin={preview:true,forceWaist:!!monthly,checkinId:"PREVIEW",milestone:monthly?28:7,endDate:todayISO(),trendStart:addDaysISO(todayISO(),-13),referenceWeight:Number(goal.current_weight_lb)||160,actualRate:actual,targetRate:target,early:false,loggedWorkouts:plannedWorkouts,plannedWorkouts,plannedSteps:Number(goal.planned_daily_steps)||8000,calorieTarget:Number(goal.calorie_target)||0,stepsRange:"",workoutAnswer:"",foodAnswer:"",completedAt:""};
+        weeklyCheckinStep=0;
+        closeModal(settingsBackdrop);
+        renderWeeklyCheckinStep();
+        weeklyCheckinBackdrop.classList.add("show");
+        weeklyCheckinBackdrop.setAttribute("aria-hidden","false");
       }
 
       function maybeShowWeeklyCheckin(){
@@ -2704,7 +2734,8 @@
         document.querySelectorAll(".appPanel").forEach(panel => panel.classList.toggle("active", panel.id === btn.dataset.panel));
         window.scrollTo({top:0,behavior:"smooth"});
       }));
-      settingsBtn.addEventListener("click", () => openSettings(true));
+      settingsBtn.addEventListener("click", () => openSettings(false));
+      editGoalsBtn.addEventListener("click",()=>startGoalWizard(false));
       wizardCloseBtn.addEventListener("click", exitGoalWizard);
       wizardBackBtn.addEventListener("click", () => { wizardStep--; renderGoalWizard(); });
       wizardNextBtn.addEventListener("click", () => {
@@ -2754,6 +2785,7 @@
         if(weeklyCheckinStep===3){
           activeWeeklyCheckin.completedAt=new Date().toISOString();
           activeWeeklyCheckin.result=buildWeeklyResult(activeWeeklyCheckin);
+          if(activeWeeklyCheckin.preview){weeklyCheckinStep=4;renderWeeklyCheckinStep();return;}
           settings.weeklyCheckins.push(activeWeeklyCheckin);
           settings.weeklyCheckins=settings.weeklyCheckins.slice(-12);
           settings.weeklyCheckinMilestone=activeWeeklyCheckin.milestone;
@@ -2762,6 +2794,7 @@
           await syncWeeklyCheckin(activeWeeklyCheckin);
           weeklyCheckinStep=4;renderWeeklyCheckinStep();return;
         }
+        if(activeWeeklyCheckin.preview){closeWeeklyCheckin();return;}
         if(activeWeeklyCheckin.recommendedCalorieTarget){
           weeklyCheckinDone.disabled=true;
           const ok=await decideAdjustment(true,activeWeeklyCheckin.recommendedCalorieTarget,{actual:activeWeeklyCheckin.actualRate,start:activeWeeklyCheckin.trendStart,end:activeWeeklyCheckin.endDate,effectiveDate:nextMondayISO(),notes:"Accepted after at least 28 days and repeated reviews with step and general macro-plan adherence confirmed."});
@@ -2780,6 +2813,8 @@
         }
         if(weeklyCheckinStep>0){weeklyCheckinStep--;renderWeeklyCheckinStep();}
       });
+      previewWeeklyBtn.addEventListener("click",()=>launchCheckinPreview(false));
+      previewMonthlyBtn.addEventListener("click",()=>launchCheckinPreview(true));
       [steps, cals, protein].forEach(inp => inp.addEventListener("input", () => { syncGoalTogglesFromInputs(); queueAutoSave(); }));
       activityChk.addEventListener("change", queueAutoSave);
 
