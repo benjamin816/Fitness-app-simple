@@ -212,9 +212,11 @@
     .exerciseCard{border:1px solid var(--line);border-radius:16px;padding:12px;margin:12px 0;background:#fff}
     .exerciseRow{display:flex;gap:16px;align-items:flex-start}
     .exerciseCard img,.exerciseCard video{width:180px;min-width:180px;border-radius:10px;background:#eef2f7}
+    .exercisePlaceholder{width:180px;min-width:180px;height:180px;display:grid;place-items:center;border-radius:18px;background:linear-gradient(145deg,#eee9ff,#d9f7ee);font-size:62px}
     @media (max-width:700px){
       .exerciseRow{flex-direction:column}
       .exerciseCard img,.exerciseCard video{width:100%;min-width:100%}
+      .exercisePlaceholder{width:100%;min-width:100%;height:150px}
     }
     .exerciseName{font-weight:950;font-size:14px}
     .exerciseMeta{font-weight:700;margin-top:4px;font-size:13px}
@@ -378,7 +380,7 @@
     </div>
 
     <div id="syncStatus" class="footerSync">● syncing</div>
-    <div class="appVersion">Fitness Tracker · v2.6.0</div>
+    <div class="appVersion">Fitness Tracker · v3.0.0</div>
   </div>
 
   <div class="weeklyCheckinBackdrop" id="weeklyCheckinBackdrop" aria-hidden="true">
@@ -410,7 +412,7 @@
           <button id="closePlanBtn" type="button">Close</button>
         </div>
       </div>
-      <div class="small" style="margin-bottom:8px">Weight moves up when reps are owned. Baseline mode starts from about 80% of controlled max.</div>
+      <div class="small" style="margin-bottom:8px">Weight moves up when reps are owned. Your first session uses a conservative working load with 2–3 clean reps in reserve.</div>
       <div id="planRows"></div>
     </div>
   </div>
@@ -437,6 +439,7 @@
           <label>Sex<select id="goalSex"><option value="male">Male</option><option value="female">Female</option></select></label>
           <label>Height (in)<input id="goalHeight" type="number" min="48" max="90" step="0.5"></label>
           <label>Current weight (lb)<input id="goalWeight" type="number" min="80" max="500" step="0.1"></label>
+          <label>Waist (in, optional)<input id="goalWaist" type="number" min="18" max="80" step="0.25"></label>
           <label>Estimated body fat %<input id="goalBodyFat" type="number" min="5" max="60" step="0.5"></label>
           <label>Target body fat %<input id="goalTargetBodyFat" type="number" min="5" max="50" step="0.5"></label>
           <label>Physique goal<select id="goalPhysique"><option value="leaner">Get leaner</option><option value="maintain">Maintain</option><option value="build">Build muscle</option></select></label>
@@ -447,7 +450,7 @@
         </div>
         <div id="wizardControl" class="wizardControl"></div>
         <div id="goalPreview" class="small" style="margin-top:12px"></div>
-        <div class="wizardNav"><button id="wizardBackBtn" class="wizardBack" type="button">← Back</button><button id="wizardNextBtn" class="wizardNext" type="button">Next →</button></div><div class="wizardVersion">Fitness Tracker · v2.6.0</div>
+        <div class="wizardNav"><button id="wizardBackBtn" class="wizardBack" type="button">← Back</button><button id="wizardNextBtn" class="wizardNext" type="button">Next →</button></div><div class="wizardVersion">Fitness Tracker · v3.0.0</div>
         <button id="saveGoalsBtn" class="primary" type="button" style="margin-top:12px">Save shared goals</button>
       </div>
       </div>
@@ -518,6 +521,7 @@
       const TIMER_KEY = "ben_tracker_v12_timers";
       const CLOUD_KEY = "ben_tracker_v12_cloud";
       const WIZARD_DRAFT_KEY = "ben_tracker_v12_goal_wizard_draft";
+      const WEEKLY_OUTBOX_KEY = "ben_tracker_v12_weekly_outbox";
 
       const $ = (id) => document.getElementById(id);
 
@@ -596,7 +600,7 @@
                 id: slugifyExerciseName(ex.name),
                 label: ex.name,
                 metricType: ex.timeBased ? "tut" : "weight",
-                baselineType: ex.timeBased ? "tut" : "2RM",
+                baselineType: ex.timeBased ? "tut" : "working_load",
                 progressionType: ex.timeBased ? "tut" : "weight",
                 tutCapSec: ex.timeBased ? 90 : null,
                 plans: [],
@@ -621,7 +625,7 @@
             id: prev.id || slugifyExerciseName(name),
             label: name,
             metricType: "weight",
-            baselineType: patch.baselineType || prev.baselineType || "2RM",
+            baselineType: patch.baselineType || prev.baselineType || "working_load",
             progressionType: "weight",
             tutCapSec: null,
             plans: patch.plans || prev.plans || [],
@@ -638,7 +642,7 @@
         }
 
         upsertWeightExercise("Dumbbell Bicep Curl", {
-          baselineType: "2RM",
+          baselineType: "working_load",
           plans: byName["Dumbbell Bicep Curl"]?.plans || ["C"],
           gifUrl: "https://fitnessprogramer.com/wp-content/uploads/2021/02/Dumbbell-Curl.gif",
           alt: "Dumbbell Curl exercise demonstration",
@@ -730,6 +734,7 @@
       const weeklyCheckinStats = $("weeklyCheckinStats"), weeklyCheckinChoices = $("weeklyCheckinChoices");
       const weeklyCheckinActual = $("weeklyCheckinActual"), weeklyCheckinTarget = $("weeklyCheckinTarget"), weeklyCheckinNote = $("weeklyCheckinNote"), weeklyCheckinDone = $("weeklyCheckinDone"), weeklyCheckinBack = $("weeklyCheckinBack");
       const goalAge = $("goalAge"), goalSex = $("goalSex"), goalHeight = $("goalHeight"), goalWeight = $("goalWeight");
+      const goalWaist = $("goalWaist");
       const goalBodyFat = $("goalBodyFat"), goalTargetBodyFat = $("goalTargetBodyFat"), goalPhysique = $("goalPhysique");
       const goalActivity = $("goalActivity"), goalRate = $("goalRate"), goalPlannedSteps = $("goalPlannedSteps"), goalWorkoutDays = $("goalWorkoutDays"), goalPreview = $("goalPreview"), saveGoalsBtn = $("saveGoalsBtn");
 
@@ -889,6 +894,16 @@
         dailyPlanSummary.innerHTML = `<strong>🎯 ${Number(goal.calorie_target).toLocaleString()} cal · ${Number(goal.protein_min_g)}g protein</strong><div class="small" style="margin-top:6px">${dayPlan ? `Daytime: ${planned} cal · ${plannedProtein}g &nbsp; | &nbsp; Evening: ~${Math.max(0,Number(goal.calorie_target)-planned).toLocaleString()} cal` : "No daytime plan synced."}</div>`;
       }
 
+      function calorieGuardrail(sex){return sex==="female"?1200:1500;}
+      function safeCaloriePlan({maintenance,requestedTarget,weight,strategy,requestedRate,sex}){
+        const floor=calorieGuardrail(sex),target=Math.max(floor,Math.round(Number(requestedTarget)/25)*25);
+        let effectiveRate=Number(requestedRate)||0;
+        if(strategy==="leaner") effectiveRate=Math.max(0,((Number(maintenance)-target)*7/(Number(weight)*3500))*100);
+        if(strategy==="build") effectiveRate=Math.max(0,((target-Number(maintenance))*7/(Number(weight)*3500))*100);
+        if(strategy==="maintain") effectiveRate=0;
+        return {target,effectiveRate:Math.min(Number(requestedRate)||0,effectiveRate)};
+      }
+
       function calculatedGoalFromForm(overrides={}){
         const age=Number(goalAge.value), height=Number(goalHeight.value), weight=Number(goalWeight.value), bf=Number(goalBodyFat.value), targetBf=Number(goalTargetBodyFat.value);
         if(!age||!height||!weight) return null;
@@ -896,36 +911,46 @@
         const bmr=10*kg+6.25*cm-5*age+(goalSex.value==="male"?5:-161);
         const factor={sedentary:1.2,light:1.375,moderate:1.55,very:1.725}[goalActivity.value]||1.55;
         const baseline={sedentary:[3500,0],light:[5500,1],moderate:[8500,2],very:[11000,3]}[goalActivity.value]||[8500,2];
-        const plannedSteps=Number(overrides.steps??goalPlannedSteps.value??baseline[0]), workoutDays=Number(overrides.workouts??goalWorkoutDays.value??baseline[1]);
-        const currentMaintenance=bmr*factor;
-        const movementAdjustment=(plannedSteps-baseline[0])*.035*(weight/160)*.65+(workoutDays-baseline[1])*(220/7)*.65;
-        const maintenance=Math.round((currentMaintenance+movementAdjustment)/25)*25;
-        const strategy=goalPhysique.value||"leaner";
-        const rawRate=Number(goalRate.value||(strategy==="build" ? 0.25 : 0.7));
+        const finalSteps=Number(overrides.steps??goalPlannedSteps.value??baseline[0]), workoutDays=Number(overrides.workouts??goalWorkoutDays.value??baseline[1]);
+        const maintenance=Math.round((bmr*factor)/25)*25;
+        let strategy=goalPhysique.value||"leaner";
+        const bmi=kg/((cm/100)**2);
+        if(age<18||bmi<18.5||wizardTouched.safety==="clinician") strategy="maintain";
+        let rawRate=Number(goalRate.value||(strategy==="build" ? 0.25 : 0.7));
+        if(strategy==="leaner"&&workoutDays===1) rawRate=Math.min(rawRate,.7);
+        if(strategy==="build"&&workoutDays===1) strategy="maintain";
         const rate=strategy==="maintain"?0:(strategy==="build"?Math.max(.1,Math.min(.5,rawRate)):Math.max(.25,Math.min(1,rawRate)));
         const calorieDelta=weight*(rate/100)*3500/7;
-        const floor=goalSex.value==="female"?1200:1500;
-        const calorieTarget=Math.max(floor,Math.round((strategy==="leaner"?maintenance-calorieDelta:strategy==="build"?maintenance+calorieDelta:maintenance)/25)*25);
-        const leanMass=bf>0&&bf<70?weight*(1-bf/100):weight;
-        const proteinBasis=strategy==="build"?weight*.9:Math.max(leanMass*.9,weight*.75);
-        const protein=Math.max(100,Math.min(220,Math.round(proteinBasis/5)*5));
-        const signedLossRate=strategy==="build"?-rate:rate;
-        return {age,sex:goalSex.value,height_in:height,current_weight_lb:weight,body_fat_pct:bf||"",target_body_fat_pct:targetBf||"",physique_goal:strategy,activity_level:goalActivity.value,planned_daily_steps:plannedSteps,planned_strength_workouts_week:workoutDays,loss_aggressiveness:strategy==="maintain"?"steady":rate<=.45?"gentle":rate<=.7?"moderate":"faster",target_loss_pct_week:signedLossRate,estimated_maintenance_calories:maintenance,calorie_target:calorieTarget,protein_min_g:protein};
+        const requestedTarget=strategy==="leaner"?maintenance-calorieDelta:strategy==="build"?maintenance+calorieDelta:maintenance;
+        const safe=safeCaloriePlan({maintenance,requestedTarget,weight,strategy,requestedRate:rate,sex:goalSex.value});
+        const proteinRate=strategy==="leaner"?.8:.75;
+        const protein=Math.min(220,Math.max(40,Math.round((weight*proteinRate)/5)*5));
+        const signedLossRate=strategy==="build"?-safe.effectiveRate:safe.effectiveRate;
+        const ramping=finalSteps>baseline[0]+2000, plannedSteps=ramping?Math.min(finalSteps,Math.round((baseline[0]+1000)/500)*500):finalSteps;
+        return {age,sex:goalSex.value,height_in:height,current_weight_lb:weight,waist_in:Number(goalWaist.value)||"",body_fat_pct:bf||"",target_body_fat_pct:targetBf||"",physique_goal:strategy,activity_level:goalActivity.value,planned_daily_steps:plannedSteps,final_daily_steps:finalSteps,baseline_daily_steps:baseline[0],step_ramp_start_date:ramping?todayISO():"",planned_strength_workouts_week:workoutDays,loss_aggressiveness:strategy==="maintain"?"steady":rate<=.45?"gentle":rate<=.7?"moderate":"faster",target_loss_pct_week:Number(signedLossRate.toFixed(3)),requested_weight_change_pct_week:strategy==="build"?-rate:rate,estimated_maintenance_calories:maintenance,calorie_target:safe.target,protein_min_g:protein,goal_started_at:new Date().toISOString(),change_type:"manual"};
+      }
+
+      function activeStepTarget(goal,date=todayISO()){
+        const first=Number(goal?.planned_daily_steps)||0,final=Number(goal?.final_daily_steps)||first,start=String(goal?.step_ramp_start_date||"");
+        if(!start||final<=first) return final||first;
+        const weeks=Math.max(0,Math.floor((new Date(date+"T12:00:00")-new Date(start.slice(0,10)+"T12:00:00"))/604800000));
+        return Math.min(final,first+(weeks*1000));
       }
 
       function refreshGoalPreview(){
         const g=calculatedGoalFromForm();
-        goalPreview.textContent=g?`Estimated maintenance: ${g.estimated_maintenance_calories.toLocaleString()} · Starting target: ${g.calorie_target.toLocaleString()} calories · Protein minimum: ${g.protein_min_g}g · Target: -${g.target_loss_pct_week}%/week`:"Enter age, height, and weight to calculate starting targets.";
+        goalPreview.textContent=g?`Starting maintenance estimate: ${g.estimated_maintenance_calories.toLocaleString()} · Starting target: ${g.calorie_target.toLocaleString()} calories · Protein minimum: ${g.protein_min_g}g · Effective scale target: ${rateText(g.target_loss_pct_week)}`:"Enter age, height, and weight to calculate starting targets.";
       }
 
       function populateGoalForm(){
         const g=settings.sharedGoal||{};
         goalAge.value=g.age||""; goalSex.value=g.sex||"male"; goalHeight.value=g.height_in||"";
         goalWeight.value=g.current_weight_lb||getLastLoggedWeight(selectedDate)||bw.value||"";
+        goalWaist.value=g.waist_in||"";
         goalBodyFat.value=g.body_fat_pct||""; goalTargetBodyFat.value=g.target_body_fat_pct||"";
         const legacyStrategy=g.physique_goal==="recomposition"?"maintain":g.physique_goal==="performance"?"build":g.physique_goal;
         goalPhysique.value=legacyStrategy||"leaner"; goalActivity.value=g.activity_level||"moderate";
-        goalPlannedSteps.value=g.planned_daily_steps||8000; goalWorkoutDays.value=g.planned_strength_workouts_week??2;
+        goalPlannedSteps.value=g.final_daily_steps||g.planned_daily_steps||8000; goalWorkoutDays.value=g.planned_strength_workouts_week??2;
         goalRate.value=String(Math.abs(Number(g.target_loss_pct_week??.7))); refreshGoalPreview();
       }
 
@@ -949,19 +974,13 @@
       }
 
       function weeklyCheckinTrend(entries){
-        const latest=entries.slice(-7), average=list=>list.reduce((sum,item)=>sum+item.weight,0)/list.length;
-        if(entries.length>=14){
-          const prior=entries.slice(-14,-7), priorAvg=average(prior), latestAvg=average(latest);
-          const meanTime=list=>list.reduce((sum,item)=>sum+new Date(item.date+"T12:00:00").getTime(),0)/list.length;
-          const days=Math.max(7,(meanTime(latest)-meanTime(prior))/86400000);
-          return {actual:((priorAvg-latestAvg)/priorAvg)*100/(days/7),early:false};
-        }
+        const latest=entries.slice(-Math.min(28,entries.length)), average=list=>list.reduce((sum,item)=>sum+item.weight,0)/list.length;
         const origin=new Date(latest[0].date+"T12:00:00").getTime();
         const points=latest.map(item=>({x:(new Date(item.date+"T12:00:00").getTime()-origin)/86400000,y:item.weight}));
         const meanX=points.reduce((sum,p)=>sum+p.x,0)/points.length, meanY=average(latest);
         const denominator=points.reduce((sum,p)=>sum+((p.x-meanX)**2),0);
         const slope=denominator?points.reduce((sum,p)=>sum+((p.x-meanX)*(p.y-meanY)),0)/denominator:0;
-        return {actual:-(slope*7/meanY)*100,early:true};
+        return {actual:-(slope*7/meanY)*100,early:entries.length<14,start:latest[0].date,end:latest[latest.length-1].date,referenceWeight:meanY};
       }
 
       function weeklyCheckinVerdict(actual,target){
@@ -998,11 +1017,10 @@
           weeklyCheckinDone.disabled=false;
         });
       }
+      function waistCheckDue(date){if(!settings.lastWaistDate)return true;return (new Date(date+"T12:00:00")-new Date(settings.lastWaistDate+"T12:00:00"))/86400000>=28;}
 
       function weeklyContext(record){
-        const ranges={under4:[0,3999],r4to6:[4000,5999],r6to8:[6000,7999],r8to10:[8000,9999],over10:[10000,16000]};
-        const chosen=ranges[record.stepsRange]||[0,0], planned=Number(record.plannedSteps??settings.sharedGoal?.planned_daily_steps)||0;
-        const stepsOnPlan=chosen[1]>=Math.max(0,planned-750);
+        const stepsOnPlan=record.stepsRange==="on"||record.stepsRange==="above";
         const workoutsOnPlan=record.workoutAnswer==="met_unlogged"||(record.workoutAnswer==="accurate"&&record.loggedWorkouts>=record.plannedWorkouts);
         return {stepsOnPlan,workoutsOnPlan,foodOnPlan:record.foodAnswer==="close"};
       }
@@ -1019,6 +1037,11 @@
         return `roughly ${low}–${high} calories/day`;
       }
 
+      function nextMondayISO(){const d=new Date(todayISO()+"T12:00:00"),add=((8-d.getDay())%7)||7;d.setDate(d.getDate()+add);return d.toISOString().slice(0,10);}
+      function cloudWeeklyRecord(record){return {checkin_id:record.checkinId,date:record.endDate,review_number:record.milestone/7,goal_version:Number(settings.sharedGoal?.goal_version)||0,goal_type:String(settings.sharedGoal?.physique_goal||""),calorie_target:record.calorieTarget,protein_min_g:Number(settings.sharedGoal?.protein_min_g)||0,target_weight_change_pct_week:record.targetRate,valid_weight_count:record.milestone,trend_window_start:record.trendStart,trend_window_end:record.endDate,observed_weight_change_pct_week:record.actualRate,reference_body_weight:record.referenceWeight,step_adherence:record.stepsRange,workout_adherence:record.workoutAnswer,food_adherence:record.foodAnswer,waist_in:record.waistIn||"",waist_measurement_date:record.waistIn?record.endDate:"",implied_energy_gap_estimate:record.estimatedDailyGap||0,recommendation_type:record.recommendedCalorieTarget?"calorie_adjustment":"none",proposed_calorie_target:record.recommendedCalorieTarget||"",user_decision:record.decision||"pending",created_at:record.completedAt};}
+      async function syncWeeklyCheckin(record){const payload=cloudWeeklyRecord(record);try{const res=await cloudPost({action:"saveWeeklyCheckin",checkin:payload});if(res?.ok){localStorage.removeItem(WEEKLY_OUTBOX_KEY);return true;}}catch{}saveJSON(WEEKLY_OUTBOX_KEY,payload);return false;}
+      async function flushWeeklyOutbox(){const pending=loadJSON(WEEKLY_OUTBOX_KEY,null);if(!pending)return;try{const res=await cloudPost({action:"saveWeeklyCheckin",checkin:pending});if(res?.ok)localStorage.removeItem(WEEKLY_OUTBOX_KEY);}catch{}}
+
       function buildWeeklyResult(record){
         const context=weeklyContext(record), gap=energyGapEstimate(record), current=Number(settings.sharedGoal.calorie_target);
         record.estimatedDailyGap=Math.round(gap/25)*25;
@@ -1026,15 +1049,18 @@
         record.recommendedCalorieTarget=null;
         const direction=gap>0?"higher":gap<0?"lower":"close to";
         if(!context.stepsOnPlan) return {title:"Keep the target for now",icon:"🚶",lead:"Your reported steps were below the movement plan, so weight alone cannot tell us that your macros are wrong.",note:"Return to your planned activity if practical, then collect another week. No macro or activity goal was changed."};
-        if(!context.workoutsOnPlan) return {title:"Keep the target for now",icon:"🏋️",lead:"The workout goal was not confirmed this week. Strength workouts are not precise calorie counters, but this is not a clean test of the full plan.",note:"Complete another consistent week before considering a macro adjustment. Nothing was changed."};
         if(!context.foodOnPlan) return {title:"The target may be fine",icon:"🍽️",lead:`Your weight trend suggests your average energy intake was ${energyRangeText(gap)} ${direction} than the plan assumed. Your reported eating pattern could explain that difference.`,note:"This is a trend estimate—not an exact food log. Keep the current target and gather another week."};
         const recent=[...settings.weeklyCheckins.slice(-2),record];
-        const consistent=record.milestone>=21&&recent.length>=3&&recent.every(item=>weeklyContext(item).stepsOnPlan&&weeklyContext(item).workoutsOnPlan&&weeklyContext(item).foodOnPlan);
-        if(!consistent) return {title:"One more week of evidence",icon:"🧭",lead:`With activity and eating reportedly near plan, your energy balance appears ${energyRangeText(gap)} ${direction} than expected.`,note:"That could still be normal noise or a difference between planned and actual portions. The app needs three consistent check-ins before recommending a target change."};
+        const consistent=recent.length>=3&&recent.every(item=>weeklyContext(item).stepsOnPlan&&weeklyContext(item).foodOnPlan);
+        const started=String(settings.sharedGoal.goal_started_at||settings.sharedGoal.updated_at||record.endDate),daysSince=Math.floor((new Date(record.endDate+"T12:00:00")-new Date(started.slice(0,10)+"T12:00:00"))/86400000);
+        if(daysSince<28) return {title:"Still calibrating",icon:"🧭",lead:`Your energy balance appears ${energyRangeText(gap)} ${direction} than expected.`,note:`Weekly reviews continue, but calorie changes stay locked until at least 28 calendar days after the active target began. ${Math.max(0,28-daysSince)} days remain.`};
+        if(!consistent) return {title:"More consistent evidence needed",icon:"🧭",lead:`With activity and eating reportedly near plan, your energy balance appears ${energyRangeText(gap)} ${direction} than expected.`,note:"That could still be normal noise or portion variation. The app needs three consistent reviews before recommending a target change."};
         if(Math.abs(gap)<100) return {title:"Stay the course",icon:"✅",lead:"Your activity, plan adherence, and rolling weight trend are close enough to the intended result.",note:"No goal change is needed."};
-        const recommended=gap>0?Math.max(1200,current-125):current+125;
+        const strategy=settings.sharedGoal.physique_goal||"maintain",candidate=gap>0?current-125:current+125;
+        const safe=safeCaloriePlan({maintenance:Number(settings.sharedGoal.estimated_maintenance_calories),requestedTarget:candidate,weight:Number(settings.sharedGoal.current_weight_lb),strategy,requestedRate:Math.abs(Number(settings.sharedGoal.target_loss_pct_week)),sex:settings.sharedGoal.sex});
+        const recommended=safe.target;
         record.recommendedCalorieTarget=recommended;
-        return {title:"A small adjustment may help",icon:"🎯",lead:`Across consistent check-ins, your energy balance appears ${energyRangeText(gap)} ${direction} than expected. This may reflect an imperfect maintenance estimate or small untracked portion differences.`,note:`You can change the shared target from ${current.toLocaleString()} to ${recommended.toLocaleString()} calories, or keep it unchanged.`};
+        return {title:"A small adjustment may help",icon:"🎯",lead:`Across consistent check-ins, your energy balance appears ${energyRangeText(gap)} ${direction} than expected. This may reflect an imperfect maintenance estimate or small untracked portion differences.`,note:`You can schedule ${current.toLocaleString()} → ${recommended.toLocaleString()} calories for next Monday. This week’s target and meal plan will not change.`};
       }
 
       function renderWeeklyCheckinStep(){
@@ -1053,18 +1079,22 @@
           weeklyCheckinNote.textContent=record.early?"This is an early signal. Add three quick context checks so the app does not mistake activity or eating variation for a bad target.":"Weight is only one clue. Add three quick context checks before the app interprets this trend.";
           weeklyCheckinDone.textContent="Add context →";
         }else if(weeklyCheckinStep===1){
-          weeklyCheckinIcon.textContent="🚶"; weeklyCheckinTitle.textContent="Average daily steps?"; weeklyCheckinLead.textContent="Choose the closest range for the last seven days. A rough phone or watch average is enough."; weeklyCheckinNote.textContent=`Your current movement plan is about ${Number(settings.sharedGoal.planned_daily_steps||0).toLocaleString()} steps/day.`;
-          setWeeklyChoices([{value:"under4",label:"Under 4,000",detail:"Mostly seated with limited walking."},{value:"r4to6",label:"4,000–5,999",detail:"Some routine walking, below a typical active day."},{value:"r6to8",label:"6,000–7,999",detail:"A moderately mobile week."},{value:"r8to10",label:"8,000–9,999",detail:"A consistently active week."},{value:"over10",label:"10,000+",detail:"High daily walking volume."}],record.stepsRange); weeklyCheckinDone.textContent="Next →"; weeklyCheckinDone.disabled=!record.stepsRange;
+          weeklyCheckinIcon.textContent="🚶"; weeklyCheckinTitle.textContent="Compared with your step goal…"; weeklyCheckinLead.textContent="Use your phone or watch’s weekly average. A broad answer is enough."; weeklyCheckinNote.textContent=`This week’s active target was about ${Number(record.plannedSteps||0).toLocaleString()} steps/day.`;
+          setWeeklyChoices([{value:"below",label:"Below it",detail:"My weekly average was clearly under the active target."},{value:"on",label:"Roughly on it",detail:"My weekly average was reasonably close to the active target."},{value:"above",label:"Above it",detail:"My weekly average was clearly above the active target."}],record.stepsRange); weeklyCheckinDone.textContent="Next →"; weeklyCheckinDone.disabled=!record.stepsRange;
         }else if(weeklyCheckinStep===2){
           weeklyCheckinIcon.textContent="🏋️"; weeklyCheckinTitle.textContent="Workout check"; weeklyCheckinLead.textContent=`Fitness Tracker found exercise data on ${record.loggedWorkouts} workout ${record.loggedWorkouts===1?"day":"days"}. Your plan called for ${record.plannedWorkouts}.`; weeklyCheckinNote.textContent="Confirm the record so a partial or unlogged workout does not distort the review.";
           setWeeklyChoices([{value:"accurate",label:"The app record is accurate",detail:"Use the workouts currently logged."},{value:"met_unlogged",label:"I met the goal",detail:"I completed the planned workouts, but some are not logged here."},{value:"missed",label:"I missed the goal",detail:"I completed fewer workouts than planned."}],record.workoutAnswer); weeklyCheckinDone.textContent="Next →"; weeklyCheckinDone.disabled=!record.workoutAnswer;
         }else if(weeklyCheckinStep===3){
           weeklyCheckinIcon.textContent="🍽️"; weeklyCheckinTitle.textContent="How closely did you eat to plan?"; weeklyCheckinLead.textContent="No calorie reconstruction needed. Choose the statement that best describes the week."; weeklyCheckinNote.textContent="This does not tell the app your exact intake—it only prevents false confidence.";
           setWeeklyChoices([{value:"close",label:"Close most days",detail:"Daytime meals and the evening budget were generally followed."},{value:"mixed",label:"Mixed or unsure",detail:"Some days were close and others were difficult to judge."},{value:"over",label:"Often more than planned",detail:"Portions, snacks, drinks, or dinner were often above the intended budget."},{value:"under",label:"Often less than planned",detail:"I regularly ate less than the intended budget."}],record.foodAnswer); weeklyCheckinDone.textContent="See my review →"; weeklyCheckinDone.disabled=!record.foodAnswer;
+          if(waistCheckDue(record.endDate)){
+            weeklyCheckinChoices.insertAdjacentHTML("beforeend",`<label class="weeklyCheckinChoice"><strong>Monthly waist check (optional)</strong><small>Relaxed, after a normal exhale, at the same abdominal location.</small><input id="weeklyWaistInput" type="number" inputmode="decimal" min="18" max="80" step="0.25" value="${record.waistIn||""}" placeholder="Inches"></label>`);
+            $("weeklyWaistInput").oninput=e=>record.waistIn=e.target.value;
+          }
         }else{
           const result=record.result||buildWeeklyResult(record);
           weeklyCheckinIcon.textContent=result.icon; weeklyCheckinTitle.textContent=result.title; weeklyCheckinLead.textContent=result.lead; weeklyCheckinNote.textContent=result.note;
-          weeklyCheckinDone.textContent=record.recommendedCalorieTarget?`Accept ${record.recommendedCalorieTarget.toLocaleString()} calorie target`:"Done";
+          weeklyCheckinDone.textContent=record.recommendedCalorieTarget?`Schedule ${record.recommendedCalorieTarget.toLocaleString()} for Monday`:"Done";
           weeklyCheckinBack.style.display=record.recommendedCalorieTarget?"block":"none";
           weeklyCheckinBack.textContent=record.recommendedCalorieTarget?"Keep current goal":"← Back";
         }
@@ -1076,7 +1106,7 @@
         if(milestone<7||milestone%7!==0||milestone<=settings.weeklyCheckinMilestone) return;
         const trend=weeklyCheckinTrend(entries), target=Number(settings.sharedGoal.target_loss_pct_week)||0;
         const endDate=entries[entries.length-1].date;
-        activeWeeklyCheckin={milestone,endDate,actualRate:trend.actual,targetRate:target,early:trend.early,loggedWorkouts:loggedWorkoutsInWeek(endDate),plannedWorkouts:Number(settings.sharedGoal.planned_strength_workouts_week)||0,plannedSteps:Number(settings.sharedGoal.planned_daily_steps)||0,calorieTarget:Number(settings.sharedGoal.calorie_target)||0,stepsRange:"",workoutAnswer:"",foodAnswer:"",completedAt:""};
+        activeWeeklyCheckin={checkinId:`WC-${Number(settings.sharedGoal.goal_version)||0}-${milestone}`,milestone,endDate,trendStart:trend.start,referenceWeight:trend.referenceWeight,actualRate:trend.actual,targetRate:target,early:trend.early,loggedWorkouts:loggedWorkoutsInWeek(endDate),plannedWorkouts:Number(settings.sharedGoal.planned_strength_workouts_week)||0,plannedSteps:activeStepTarget(settings.sharedGoal,endDate),calorieTarget:Number(settings.sharedGoal.calorie_target)||0,stepsRange:"",workoutAnswer:"",foodAnswer:"",completedAt:""};
         weeklyCheckinStep=0;
         renderWeeklyCheckinStep();
         weeklyCheckinBackdrop.classList.add("show");
@@ -1104,7 +1134,7 @@
       }
 
       async function decideAdjustment(accept,recommended,trend){
-        const res=await cloudPost({action:"decideGoalAdjustment",accept,expectedGoalVersion:settings.sharedGoal.goal_version,recommendedCalorieTarget:recommended,targetLossPctWeek:settings.sharedGoal.target_loss_pct_week,actualLossPctWeek:trend.actual,trendStartDate:trend.start,trendEndDate:trend.end,notes:trend.notes||"Trend-based recommendation; 125 calorie step."});
+        const res=await cloudPost({action:"decideGoalAdjustment",accept,expectedGoalVersion:settings.sharedGoal.goal_version,recommendedCalorieTarget:recommended,effectiveDate:trend.effectiveDate||"",targetLossPctWeek:settings.sharedGoal.target_loss_pct_week,actualLossPctWeek:trend.actual,trendStartDate:trend.start,trendEndDate:trend.end,notes:trend.notes||"Trend-based recommendation; 125 calorie step."});
         if(res?.ok&&res.shared?.goal){settings.sharedGoal=res.shared.goal;saveJSON(SETTINGS_KEY,settings);refreshGoalTexts();renderAdaptiveCoaching();setSyncStatus("● synced");return true;}
         setSyncStatus("● sync failed"); return false;
       }
@@ -1213,13 +1243,14 @@
 
       function workoutDescription(which){
         if(which === "FULL_BODY") return "Full body · same exercises, same order · about 3 nonconsecutive days per week.";
-        if(which === "BASELINE") return "Baseline Test = one set only per exercise. Each exercise card shows the target baseline rep/time format.";
+        if(which === "BASELINE") return "Calibration workout: choose conservative working loads with about 2–3 clean reps in reserve.";
         return "Pick a workout day to track that day's plan.";
       }
 
       function renderExerciseMedia(src, alt){
         const safeSrc = String(src || "");
         const safeAlt = String(alt || "Exercise demonstration").replace(/"/g, "&quot;");
+        if(!safeSrc) return `<div class="exercisePlaceholder" aria-label="${safeAlt}">🏋️</div>`;
         if(/\.mp4(\?|$)/i.test(safeSrc)){
           return `<video src="${safeSrc}" aria-label="${safeAlt}" autoplay loop muted playsinline preload="metadata"></video>`;
         }
@@ -1227,11 +1258,21 @@
       }
 
       function workoutsForDay(day){
+        if(day==="FULL_BODY"){
+          const frequency=Number(settings.sharedGoal?.planned_strength_workouts_week||goalWorkoutDays?.value||3);
+          const sets=frequency>=3?2:3;
+          return [
+            {name:"Goblet Squat",meta:`${sets} sets · 8–12 reps`,desc:"Performed alone. Stop with about 1–3 clean reps in reserve.",sets,low:8,high:12,unit:"reps",increment:5,restSec:180,group:"solo"},
+            {name:"Low-Incline Dumbbell Press",meta:`${sets} sets · 6–10 reps`,desc:"Pair with Cable Row. Alternate movements so each muscle receives about 2–5 minutes of effective recovery.",sets,low:6,high:10,unit:"reps",increment:5,restSec:45,group:"pair-a"},
+            {name:"Cable Row",meta:`${sets} sets · 8–12 reps`,desc:"Pair with the press. Use a controlled squeeze and avoid turning the set into momentum.",sets,low:8,high:12,unit:"reps",increment:5,restSec:120,group:"pair-a"},
+            {name:"Romanian Deadlift",meta:`${sets} sets · 8–12 reps`,desc:"Performed alone with about three minutes before repeating. Keep the hinge controlled and submaximal.",sets,low:8,high:12,unit:"reps",increment:10,restSec:180,group:"solo"},
+            {name:"Assisted Neutral-Grip Pull-up",meta:`${sets} sets · 8–12 reps`,desc:"Graduation path: inverted row → 3×15 → assisted neutral-grip pull-up → about 10 unassisted reps → overhand pull-up 3×5–8 → add weight after more than 8 clean reps. A neutral-grip pulldown is only a practical substitute.",sets,low:8,high:12,unit:"reps",increment:5,restSec:45,group:"pair-b"},
+            {name:"Dumbbell Lateral Raise",meta:`${sets} sets · 12–20 reps`,desc:"Pair with the vertical pull. The final set may occasionally approach 0–1 reps in reserve.",sets,low:12,high:20,unit:"reps",increment:2.5,restSec:120,group:"pair-b"}
+          ];
+        }
         const fullBodyNames = ["Goblet Squat","Dumbbell Bench Press","Dumbbell Pullover","Dumbbell Romanian Deadlift","Dumbbell Rear Delt Fly","Dumbbell Overhead Press","Reverse Crunch Hold"];
         const all = ["A","B","C"].flatMap(key => Array.isArray(WORKOUTS?.[key]) ? WORKOUTS[key] : []);
-        const list = day === "FULL_BODY"
-          ? fullBodyNames.map(name => all.find(ex => ex && ex.name === name)).filter(Boolean)
-          : (Array.isArray(WORKOUTS?.[day]) ? [...WORKOUTS[day]] : []);
+        const list = Array.isArray(WORKOUTS?.[day]) ? [...WORKOUTS[day]] : [];
         const merged = list.map(ex => {
           const cfg = EXERCISE_CONFIG[ex.name];
           if(!cfg) return { ...ex };
@@ -1521,13 +1562,18 @@
 
       function detectStall(key){
         const logs = exposuresInWindow(key, 30).filter(x => Number.isFinite(Number(x.mainWeight)));
-        if(logs.length < 5) return { stalled:false };
-        const vals = logs.slice(0,5).map(x => Number(x.mainWeight));
-        const max = Math.max(...vals);
-        const min = Math.min(...vals);
-        const fails = logs.slice(0,5).filter(x => x.fail).length;
-        if(max === min && fails >= 2) return { stalled:true };
+        if(logs.length < 4) return { stalled:false };
+        const recent=logs.slice(0,4),vals=recent.map(x=>Number(x.mainWeight));
+        if(Math.max(...vals)!==Math.min(...vals)) return {stalled:false};
+        const totals=recent.map(x=>(x.reps||[]).reduce((sum,v)=>sum+(Number(v)||0),0)).reverse();
+        const improving=totals.some((value,index)=>index>0&&value>totals[index-1]);
+        const highEffort=recent.filter(x=>x.fail||!x.easy).length>=3;
+        if(!improving&&highEffort) return { stalled:true };
         return { stalled:false };
+      }
+
+      function deloadSuggested(){
+        return workoutsForDay("FULL_BODY").filter(ex=>detectStall(exerciseKey("FULL_BODY",ex)).stalled).length>=3;
       }
 
       function lastValue(key, timeBased=false){
@@ -1571,13 +1617,14 @@
         if(!Number.isFinite(base) || base <= 0) return "";
         if(ex.timeBased){
           const cap = tutCapForExercise(ex);
-          return Math.min(cap, Math.max(5, Math.round((Number(base) * 0.8) / 5) * 5));
+          return Math.min(cap, Math.max(5, Math.round(Number(base) / 5) * 5));
         }
-        return roundToStep(Number(base) * 0.8, settings.increment);
+        return roundToStep(Number(base), Number(ex.increment)||settings.increment);
       }
 
       function recommend(dayName, ex){
         const key = exerciseKey(dayName, ex);
+        const increment=Number(ex.increment)||settings.increment;
         const last = exposuresInWindow(key, 365)[0];
 
         if(!last){
@@ -1605,11 +1652,7 @@
 
         const prevGoal = Number(last.goalAtTime || 0);
         if(prevGoal > 0 && loggedWeight > prevGoal && !last.fail){
-          return String(last.easy ? roundToStep(loggedWeight + settings.increment, settings.increment) : loggedWeight);
-        }
-
-        if(last.fail){
-          return String(Math.max(settings.increment, roundToStep(loggedWeight * 0.95, settings.increment)));
+          return String(last.easy ? roundToStep(loggedWeight + increment, increment) : loggedWeight);
         }
 
         const reps = (last.reps || []).filter(v => Number.isFinite(v));
@@ -1618,15 +1661,18 @@
           const high = Number(ex.high || low);
           const minRep = Math.min(...reps);
           if(minRep >= high){
-            return String(roundToStep(loggedWeight + settings.increment, settings.increment));
+            return String(roundToStep(loggedWeight + increment, increment));
           }
           if(minRep < low){
-            return String(Math.max(settings.increment, roundToStep(loggedWeight * 0.95, settings.increment)));
+            const prior=exposuresInWindow(key,365)[1],priorReps=(prior?.reps||[]).filter(v=>Number.isFinite(v));
+            const repeatedPoor=priorReps.length&&Math.min(...priorReps)<low;
+            const repeatedFailure=last.fail&&prior?.fail;
+            return repeatedPoor||repeatedFailure?String(Math.max(increment,roundToStep(loggedWeight*.925,increment))):String(loggedWeight);
           }
           return String(loggedWeight);
         }
 
-        return String(last.easy ? roundToStep(loggedWeight + settings.increment, settings.increment) : loggedWeight);
+        return String(last.easy ? roundToStep(loggedWeight + increment, increment) : loggedWeight);
       }
 
       function setExerciseLog(key, payload){
@@ -2058,7 +2104,7 @@
 
       function renderBaselineModal(){
         planTitle.textContent = "Baseline Test";
-        planMeta.textContent = `${prettyDate(selectedDate)} - onboarding baseline only (not a sloppy max)`;
+        planMeta.textContent = `${prettyDate(selectedDate)} · first-workout calibration`;
         planRows.innerHTML = "";
         const day = ensureDayRecord(selectedDate);
         day.workout = "BASELINE";
@@ -2078,20 +2124,12 @@
                 <div class="exerciseMeta">${ex.meta}</div>
                 <div class="exerciseDesc">${ex.desc}</div>
                 <div class="goalMeta">
-                  <div><strong>Goal:</strong> ${cfg.metricType === "tut"
-                    ? "Find the longest controlled hold/time you can safely do with good form."
-                    : (cfg.baselineType === "8RM"
-                      ? "Find the heaviest weight you can lift safely, with good form, for 8 reps."
-                      : "Find the heaviest weight you can lift safely, with good form, for 2 reps.")}</div>
-                  <div><strong>Important:</strong> This is not an all-out sloppy max.</div>
+                  <div><strong>Goal:</strong> Choose a conservative working load near the bottom or middle of the rep range.</div>
+                  <div><strong>Effort:</strong> Stop with about 2–3 clean reps still available. This is calibration, never a max test.</div>
                 </div>
                 <div class="singleRow">
-                  <label class="small">${cfg.metricType === "tut"
-                    ? "Single baseline time entry (sec)"
-                    : (cfg.baselineType === "8RM"
-                      ? "Single baseline weight entry (lb for a controlled 8-rep result)"
-                      : "Single baseline weight entry (lb for a controlled 2-rep result)")}</label>
-                  <input class="baselineInput" type="number" step="${cfg.metricType === "tut" ? "1" : "0.5"}" value="${current}" />
+                  <label class="small">Starting working weight (lb)</label>
+                  <input class="baselineInput" type="number" step="${ex.increment||2.5}" value="${current}" />
                 </div>
               </div>
             </div>
@@ -2372,8 +2410,8 @@
         planMeta.textContent=`Exercise ${activeWorkoutIndex+1} of ${exercises.length} · ${prettyDate(selectedDate)}`;
         const key=exerciseKey(dayName,ex), todayLog=getLog(store.days[selectedDate]?.workoutLog?.[key]);
         const previous=lastValue(key,ex.timeBased), goal=recommend(dayName,ex), stall=detectStall(key);
-        const setCount=Number(ex.sets||3);
-        planRows.innerHTML=`<div class="workoutPager"><div class="exerciseCard"><div class="exerciseRow">${renderExerciseMedia(ex.img,ex.alt||ex.name)}<div style="flex:1;min-width:0"><div class="exerciseName">${ex.name}</div><div class="exerciseMeta">${ex.meta}</div><div class="exerciseDesc">${ex.desc}</div><div class="goalMeta"><div><strong>Previous workout:</strong> ${previous?.display||"—"}</div><div><strong>Today's goal:</strong> ${goal?`${goal} ${ex.timeBased?"sec":"lb"}`:"Use your baseline or a comfortable starting load"}</div></div>${ex.timeBased?`<div class="singleRow"><label class="small">Controlled time (sec)</label><input id="pagedTime" type="number" min="1" max="${tutCapForExercise(ex)}" value="${todayLog.value||goal||""}"></div>`:`<div class="setGrid"><div class="setHead">Set</div><div class="setHead">Weight</div><div class="setHead">Reps</div>${Array.from({length:setCount},(_,i)=>`<div class="setLabel">Set ${i+1}</div><input class="pagedWeight" type="number" step="0.5" value="${todayLog.setWeights?.[i]??goal??""}"><input class="pagedRep" type="number" step="1" value="${todayLog.setReps?.[i]??""}">`).join("")}</div>`}<div class="miniChecks"><label><input id="pagedFail" type="checkbox" ${todayLog.fail?"checked":""}> Hit failure</label><label><input id="pagedEasy" type="checkbox" ${todayLog.easy?"checked":""}> Too easy</label></div>${stall.stalled?'<div class="flagBox"><span class="badge warn">⚠︎ Stall catch</span><span class="small">Recommended load stepped back one increment.</span></div>':""}<div class="timerBox"><div class="small">Rest timer</div><div id="pagedTimer" class="timerDisplay">01:30</div><div class="timerBtns"><button id="startRest" type="button">Start 90 sec</button><button id="resetRest" type="button">Reset</button></div></div></div></div></div><div class="workoutNav"><button id="previousExercise" type="button" ${activeWorkoutIndex===0?"disabled":""}>← Previous</button><button id="nextExercise" class="primary" type="button">${activeWorkoutIndex===exercises.length-1?"Complete workout":"Next exercise →"}</button></div></div>`;
+        const setCount=Number(ex.sets||3),restDefault=Number(ex.restSec||120);
+        planRows.innerHTML=`<div class="workoutPager">${deloadSuggested()?'<div class="flagBox"><span class="badge warn">Recovery week suggested</span><span class="small">Several lifts have stalled together. Use roughly 10–15% less load this session, then resume normal progression.</span></div>':""}<div class="exerciseCard"><div class="exerciseRow">${renderExerciseMedia(ex.img,ex.alt||ex.name)}<div style="flex:1;min-width:0"><div class="exerciseName">${ex.name}</div><div class="exerciseMeta">${ex.meta}</div><div class="exerciseDesc">${ex.desc}</div><div class="goalMeta"><div><strong>Previous workout:</strong> ${previous?.display||"—"}</div><div><strong>Today's goal:</strong> ${goal?`${goal} ${ex.timeBased?"sec":"lb"}`:"Use your baseline or a comfortable starting load"}</div></div>${ex.timeBased?`<div class="singleRow"><label class="small">Controlled time (sec)</label><input id="pagedTime" type="number" min="1" max="${tutCapForExercise(ex)}" value="${todayLog.value||goal||""}"></div>`:`<div class="setGrid"><div class="setHead">Set</div><div class="setHead">Weight</div><div class="setHead">Reps</div>${Array.from({length:setCount},(_,i)=>`<div class="setLabel">Set ${i+1}</div><input class="pagedWeight" type="number" step="0.5" value="${todayLog.setWeights?.[i]??goal??""}"><input class="pagedRep" type="number" step="1" value="${todayLog.setReps?.[i]??""}">`).join("")}</div>`}<div class="miniChecks"><label><input id="pagedFail" type="checkbox" ${todayLog.fail?"checked":""}> Hit failure</label><label><input id="pagedEasy" type="checkbox" ${todayLog.easy?"checked":""}> Too easy</label></div>${stall.stalled?'<div class="flagBox"><span class="badge warn">⚠︎ Stall catch</span><span class="small">Recommended load stepped back one increment.</span></div>':""}<div class="timerBox"><div class="small">Rest timer · short transitions are fine; accumulate about 2–5 minutes before repeating the same muscle</div><div id="pagedTimer" class="timerDisplay">${String(Math.floor(restDefault/60)).padStart(2,"0")}:${String(restDefault%60).padStart(2,"0")}</div><div class="timerBtns"><button id="startRest" type="button">Start ${restDefault} sec</button><button id="resetRest" type="button">Reset</button></div></div></div></div></div><div class="workoutNav"><button id="previousExercise" type="button" ${activeWorkoutIndex===0?"disabled":""}>← Previous</button><button id="nextExercise" class="primary" type="button">${activeWorkoutIndex===exercises.length-1?"Complete workout":"Next exercise →"}</button></div></div>`;
         const fail=$("pagedFail"),easy=$("pagedEasy");
         function persist(){
           if(ex.timeBased){const input=$("pagedTime");setExerciseLog(key,{type:"time",value:input?.value||"",fail:fail.checked,easy:easy.checked,setWeights:[],setReps:[],goalAtTime:goal||""});}
@@ -2384,10 +2422,11 @@
         fail.onchange=()=>{if(fail.checked)easy.checked=false;persist();}; easy.onchange=()=>{if(easy.checked)fail.checked=false;persist();};
         $("previousExercise").onclick=()=>{persist();activeWorkoutIndex--;renderPagedWorkout(dayName);};
         $("nextExercise").onclick=()=>{persist();if(activeWorkoutIndex<exercises.length-1){activeWorkoutIndex++;renderPagedWorkout(dayName);}else{renderWorkoutComplete(dayName,exercises);}};
-        let restRemaining=90,restInterval=null; const timer=$("pagedTimer");
+        let restRemaining=restDefault,restInterval=null; const timer=$("pagedTimer");
         const paint=()=>timer.textContent=`${String(Math.floor(restRemaining/60)).padStart(2,"0")}:${String(restRemaining%60).padStart(2,"0")}`;
+        paint();
         $("startRest").onclick=()=>{if(restInterval)return;restInterval=setInterval(()=>{restRemaining=Math.max(0,restRemaining-1);paint();if(!restRemaining){clearInterval(restInterval);restInterval=null;if(navigator.vibrate)navigator.vibrate([180,80,180]);playBeep(900,.14,2,.1);}},1000);};
-        $("resetRest").onclick=()=>{if(restInterval)clearInterval(restInterval);restInterval=null;restRemaining=90;paint();};
+        $("resetRest").onclick=()=>{if(restInterval)clearInterval(restInterval);restInterval=null;restRemaining=restDefault;paint();};
       }
 
       function renderWorkoutComplete(dayName,exercises){
@@ -2406,22 +2445,22 @@
         backdrop.setAttribute("aria-hidden","true");
       }
 
-      const commonWizardSteps = ["age","sex","height","weight","goal","activity"];
+      const commonWizardSteps = ["age","sex","height","weight","safety","goal","activity","waist"];
       let wizardStep = 0;
       let forcedGoalSetup = false;
       let wizardTouched = {};
 
       function saveWizardDraft(){
-        saveJSON(WIZARD_DRAFT_KEY,{step:wizardStep,touched:wizardTouched,values:{age:goalAge.value,sex:goalSex.value,height:goalHeight.value,weight:goalWeight.value,bodyFat:goalBodyFat.value,targetBodyFat:goalTargetBodyFat.value,physique:goalPhysique.value,activity:goalActivity.value,rate:goalRate.value,steps:goalPlannedSteps.value,workouts:goalWorkoutDays.value}});
+        saveJSON(WIZARD_DRAFT_KEY,{step:wizardStep,touched:wizardTouched,values:{age:goalAge.value,sex:goalSex.value,height:goalHeight.value,weight:goalWeight.value,waist:goalWaist.value,bodyFat:goalBodyFat.value,targetBodyFat:goalTargetBodyFat.value,physique:goalPhysique.value,activity:goalActivity.value,rate:goalRate.value,steps:goalPlannedSteps.value,workouts:goalWorkoutDays.value}});
       }
       function restoreWizardDraft(){
         const draft=loadJSON(WIZARD_DRAFT_KEY,null);if(!draft?.values)return false;const v=draft.values;
-        goalAge.value=v.age||"";goalSex.value=v.sex||"male";goalHeight.value=v.height||"";goalWeight.value=v.weight||"";goalBodyFat.value=v.bodyFat||"";goalTargetBodyFat.value=v.targetBodyFat||"";goalPhysique.value=v.physique||"leaner";goalActivity.value=v.activity||"moderate";goalRate.value=v.rate||.7;goalPlannedSteps.value=v.steps||8000;goalWorkoutDays.value=v.workouts||2;
+        goalAge.value=v.age||"";goalSex.value=v.sex||"male";goalHeight.value=v.height||"";goalWeight.value=v.weight||"";goalWaist.value=v.waist||"";goalBodyFat.value=v.bodyFat||"";goalTargetBodyFat.value=v.targetBodyFat||"";goalPhysique.value=v.physique||"leaner";goalActivity.value=v.activity||"moderate";goalRate.value=v.rate||.7;goalPlannedSteps.value=v.steps||8000;goalWorkoutDays.value=v.workouts||2;
         wizardTouched=draft.touched||{};wizardStep=Number(draft.step)||0;return true;
       }
       function clearCompletedWizardDraft(goal){
         const draft=loadJSON(WIZARD_DRAFT_KEY,null),v=draft?.values;if(!v||!goal)return;
-        const matches=String(v.physique)===String(goal.physique_goal)&&Number(v.weight)===Number(goal.current_weight_lb)&&Number(v.steps)===Number(goal.planned_daily_steps)&&Number(v.workouts)===Number(goal.planned_strength_workouts_week);
+        const matches=String(v.physique)===String(goal.physique_goal)&&Number(v.weight)===Number(goal.current_weight_lb)&&Number(v.steps)===Number(goal.final_daily_steps||goal.planned_daily_steps)&&Number(v.workouts)===Number(goal.planned_strength_workouts_week);
         if(matches)localStorage.removeItem(WIZARD_DRAFT_KEY);
       }
 
@@ -2439,26 +2478,29 @@
       }
 
       const stepCopy={
-        age:{icon:"🎂",title:"How old are you?",prompt:"Slide to your age."},sex:{icon:"🧬",title:"Are you…",prompt:"Tap the visual that applies to you."},
+        age:{icon:"🎂",title:"How old are you?",prompt:"Slide to your age."},safety:{icon:"🛡️",title:"One quick safety check",prompt:"Automated dieting is not appropriate for every situation."},sex:{icon:"🧬",title:"Are you…",prompt:"Tap the visual that applies to you."},
         height:{icon:"📏",title:"How tall are you?",prompt:"Use the measuring wheel."},weight:{icon:"⚖️",title:"What do you weigh today?",prompt:"Adjust the starting estimate if needed."},
         goal:{icon:"✨",title:"What’s your goal?",prompt:"Choose the direction you want your weight and training to take."},activity:{icon:"🏃",title:"What does a normal week look like now?",prompt:"This is only your starting baseline. We’ll recommend where to go from here."},
+        waist:{icon:"📐",title:"Add a waist baseline",prompt:"Optional, but useful for monthly progress checks."},
         bodyfat:{icon:"🪞",title:"Which looks most like you now?",prompt:"A broad visual estimate is enough. You can also skip this estimate."},targetbodyfat:{icon:"🏁",title:"What outcome feels right?",prompt:"Choose a visual direction, not a promise of an exact appearance."},
         leanstatus:{icon:"🛡️",title:"Leaner isn’t the right next step",prompt:"Your visual estimate is already in the very-lean range."},
         pace:{icon:"⏱️",title:"Choose your pace",prompt:"Faster scale change also brings bigger tradeoffs."},movement:{icon:"👟",title:"Choose your movement plan",prompt:"We recommend a plan from your goal and starting point. More movement creates more food flexibility."},summary:{icon:"✅",title:"Your starting plan",prompt:"You can change these choices later."}
       };
 
       function recommendedMovement(){
-        const goal=goalPhysique.value,rate=Number(goalRate.value||0);
-        if(goal==="leaner") return rate>=.85?{steps:10000,workouts:3}:rate>=.65?{steps:8500,workouts:3}:{steps:7500,workouts:2};
-        if(goal==="build") return {steps:7000,workouts:rate>=.35?3:2};
-        return {steps:7500,workouts:2};
+        const goal=goalPhysique.value;
+        const baseline={sedentary:3500,light:5500,moderate:8500,very:11000}[goalActivity.value]||8500;
+        const steps=Math.max(5000,Math.min(10000,Math.round((baseline+1500)/500)*500));
+        return {steps,workouts:goal==="maintain"?2:3,baselineSteps:baseline};
       }
       function movementOptions(){
         const rec=recommendedMovement();
+        const goal=goalPhysique.value;
+        const lowerWorkouts=goal==="maintain"?1:2;
         return [
-          {key:"lower",title:"Lower commitment",steps:Math.max(5000,rec.steps-2000),workouts:Math.max(1,rec.workouts-1),desc:"Less movement; your food target adjusts to keep the same goal direction."},
-          {key:"recommended",title:"Recommended",steps:rec.steps,workouts:rec.workouts,desc:"Our best balance of progress, recovery, and food flexibility."},
-          {key:"higher",title:"Higher movement",steps:Math.min(12000,rec.steps+2000),workouts:rec.workouts,desc:"More daily movement and slightly more food flexibility."}
+          {key:"lower",title:"Lower commitment",steps:Math.max(5000,Math.round(rec.baselineSteps/500)*500),workouts:lowerWorkouts,desc:"A realistic minimum based on your current activity."},
+          {key:"recommended",title:"Recommended",steps:rec.steps,workouts:rec.workouts,desc:"A manageable step increase plus the recommended training frequency."},
+          {key:"higher",title:"Higher movement",steps:Math.min(10000,rec.steps+1500),workouts:3,desc:"More walking and training if this is realistic for you."}
         ];
       }
 
@@ -2492,7 +2534,14 @@
 
       function renderWizardControl(step){
         const weight=Number(goalWeight.value||160);
-        if(step==="age"){const v=Number(goalAge.value||25);goalAge.value=v;wheelControl("age",18,90,1,v,v=>`${v} years`);return;}
+        if(step==="age"){const v=Number(goalAge.value||25);goalAge.value=v;wheelControl("age",13,90,1,v,v=>`${v} years`);return;}
+        if(step==="safety"){
+          const heightM=Number(goalHeight.value)*.0254,bmi=Number(goalWeight.value)*.453592/(heightM*heightM);
+          const forced=Number(goalAge.value)<18||bmi<18.5;
+          wizardControl.innerHTML=`<div class="choiceStack">${choiceButton("clear","None of these apply","I am 18+ and not pregnant/breastfeeding, and I do not need clinician-guided weight management.",wizardTouched.safety==="clear"&&!forced)}${choiceButton("clinician",forced?"I’m under 18":"One of these applies","Under 18, pregnant/breastfeeding, eating-disorder history or warning, underweight, or a medical situation requiring clinician guidance.",wizardTouched.safety==="clinician"||forced)}</div>${forced?'<div class="referenceNote">Fitness Tracker will use Maintain and recommends involving an appropriate healthcare professional.</div>':""}`;
+          if(forced)wizardTouched.safety="clinician";
+          wizardControl.querySelectorAll(".choiceCard").forEach(btn=>btn.onclick=()=>{wizardTouched.safety=btn.dataset.value;if(btn.dataset.value==="clinician"){goalPhysique.value="maintain";goalRate.value=0;}renderWizardControl(step);});setWizardNextReady(!!wizardTouched.safety);return;
+        }
         if(step==="sex"){
           wizardControl.innerHTML=`<div class="sexGrid"><button type="button" class="sexCard${goalSex.value==="male"&&wizardTouched.sex?" selected":""}" data-value="male"><div class="sexVisual"><img src="assets/onboarding-man.png" alt="Full-body illustration of a man"></div><strong>Man</strong></button><button type="button" class="sexCard${goalSex.value==="female"&&wizardTouched.sex?" selected":""}" data-value="female"><div class="sexVisual"><img src="assets/onboarding-woman.png" alt="Full-body illustration of a woman"></div><strong>Woman</strong></button></div>`;
           wizardControl.querySelectorAll(".sexCard").forEach(btn=>btn.onclick=()=>{goalSex.value=btn.dataset.value;wizardTouched.sex=true;if(!wizardTouched.height){goalHeight.value=btn.dataset.value==="male"?68:64;}renderWizardControl(step);});setWizardNextReady(!!wizardTouched.sex);return;
@@ -2505,6 +2554,10 @@
         if(step==="activity"){
           const opts=[["sedentary","Mostly sedentary","Usually under 4,000 steps/day and no regular workouts."],["light","Lightly active","Roughly 4,000–7,000 steps/day and about one workout or vigorous sport session weekly."],["moderate","Moderately active","Roughly 7,000–10,000 steps/day and about two workouts weekly."],["very","Very active","Commonly 10,000+ steps/day and three or more workouts weekly, or a physically demanding job."]];wizardControl.innerHTML=`<div class="choiceStack">${opts.map(o=>choiceButton(o[0],o[1],o[2],goalActivity.value===o[0]&&wizardTouched.activity)).join("")}</div>`;wizardControl.querySelectorAll(".choiceCard").forEach(btn=>btn.onclick=()=>{goalActivity.value=btn.dataset.value;wizardTouched.activity=true;wizardTouched.movementChoice="";renderWizardControl(step);});setWizardNextReady(!!wizardTouched.activity);return;
         }
+        if(step==="waist"){
+          wizardControl.innerHTML=`<div class="summaryCard"><label style="display:grid;gap:10px"><strong>Waist circumference (inches)</strong><input id="waistWizardInput" type="number" inputmode="decimal" min="18" max="80" step="0.25" value="${goalWaist.value||""}" placeholder="Optional"></label><p class="small" style="margin-top:14px">Measure around the abdomen at the same location each time, relaxed after a normal exhale, under similar conditions. Leave blank if you prefer.</p></div>`;
+          $("waistWizardInput").oninput=e=>{goalWaist.value=e.target.value;saveWizardDraft();};setWizardNextReady(true);return;
+        }
         if(step==="bodyfat"){bodyFatOptions(false);return;} if(step==="targetbodyfat"){bodyFatOptions(true);return;}
         if(step==="leanstatus"){
           wizardControl.innerHTML=`<div class="leanStatus"><h3>Maintaining is the healthier direction</h3><p>Based on the visual range you chose, intentionally pushing your weight lower is unlikely to be the best next goal. Maintain your weight, train for strength, and reassess over time.</p><button type="button" id="acceptMaintain" class="wizardNext">Continue with Maintain</button></div>`;
@@ -2515,10 +2568,10 @@
         }
         if(step==="movement"){
           const options=movementOptions();if(!wizardTouched.movementChoice){const rec=options.find(o=>o.key==="recommended");wizardTouched.movementChoice="recommended";goalPlannedSteps.value=rec.steps;goalWorkoutDays.value=rec.workouts;}const selected=wizardTouched.movementChoice;
-          const cards=options.map(o=>{const calories=calculatedGoalFromForm({steps:o.steps,workouts:o.workouts})?.calorie_target;return choiceButton(o.key,o.title,`${o.steps.toLocaleString()} steps/day · ${o.workouts} strength workout${o.workouts===1?"":"s"}/week · ${calories?.toLocaleString()||"—"} calories/day. ${o.desc}`,selected===o.key)});
+          const cards=options.map(o=>choiceButton(o.key,o.title,`${o.steps.toLocaleString()} steps/day · ${o.workouts} strength workout${o.workouts===1?"":"s"}/week. ${o.desc}`,selected===o.key));
           cards.push(choiceButton("custom","Customize","Choose your own daily steps and realistic weekly workout commitment.",selected==="custom"));
-          const customCalories=calculatedGoalFromForm()?.calorie_target;
-          const custom=selected==="custom"?`<div class="movementCustom"><strong>Daily steps</strong><div class="movementPills">${[4000,6000,8000,10000,12000].map(v=>`<button type="button" data-steps="${v}" class="${Number(goalPlannedSteps.value)===v?"selected":""}">${(v/1000)}k</button>`).join("")}</div><strong>Strength workouts each week</strong><div class="movementPills">${[1,2,3,4].map(v=>`<button type="button" data-workouts="${v}" class="${Number(goalWorkoutDays.value)===v?"selected":""}">${v} day${v===1?"":"s"}</button>`).join("")}</div><div class="referenceNote">Your current choice supports a target of about ${customCalories?.toLocaleString()||"—"} calories/day.</div></div>`:"";
+          const customWarning=goalPhysique.value==="build"&&Number(goalWorkoutDays.value)===1?"One weekly session is a minimum plan; Maintain is recommended instead of a deliberate surplus.":goalPhysique.value==="leaner"&&Number(goalWorkoutDays.value)===1&&Number(goalRate.value)>=.9?"One weekly session does not support the aggressive loss option; the pace will need to be reduced.":"Training frequency changes training adequacy—not your calories or protein.";
+          const custom=selected==="custom"?`<div class="movementCustom"><strong>Daily steps</strong><div class="movementPills">${[4000,6000,8000,10000,12000].map(v=>`<button type="button" data-steps="${v}" class="${Number(goalPlannedSteps.value)===v?"selected":""}">${(v/1000)}k</button>`).join("")}</div><strong>Strength workouts each week</strong><div class="movementPills">${[1,2,3,4].map(v=>`<button type="button" data-workouts="${v}" class="${Number(goalWorkoutDays.value)===v?"selected":""}">${v} day${v===1?"":"s"}</button>`).join("")}</div><div class="referenceNote">${customWarning}</div></div>`:"";
           wizardControl.innerHTML=`<div class="choiceStack">${cards.join("")}</div>${custom}`;
           wizardControl.querySelectorAll(".choiceCard").forEach(btn=>btn.onclick=()=>{wizardTouched.movementChoice=btn.dataset.value;if(btn.dataset.value!=="custom"){const pick=options.find(o=>o.key===btn.dataset.value);goalPlannedSteps.value=pick.steps;goalWorkoutDays.value=pick.workouts;}else{const rec=recommendedMovement();goalPlannedSteps.value=rec.steps;goalWorkoutDays.value=rec.workouts;}renderWizardControl(step);});
           wizardControl.querySelectorAll("[data-steps]").forEach(btn=>btn.onclick=()=>{goalPlannedSteps.value=btn.dataset.steps;renderWizardControl(step);});wizardControl.querySelectorAll("[data-workouts]").forEach(btn=>btn.onclick=()=>{goalWorkoutDays.value=btn.dataset.workouts;renderWizardControl(step);});
@@ -2560,7 +2613,7 @@
           queueAutoSave();
         }
         populateGoalForm();
-        [goalAge,goalSex,goalHeight,goalWeight,goalBodyFat,goalTargetBodyFat,goalPhysique,goalActivity,goalRate,goalPlannedSteps,goalWorkoutDays].forEach(inp=>inp.oninput=refreshGoalPreview);
+        [goalAge,goalSex,goalHeight,goalWeight,goalWaist,goalBodyFat,goalTargetBodyFat,goalPhysique,goalActivity,goalRate,goalPlannedSteps,goalWorkoutDays].forEach(inp=>inp.oninput=refreshGoalPreview);
         [setIncrement, setTimeIncrement].forEach(inp => inp.oninput = syncSettings);
         purgeConfirmWrap.style.display = "none";
         purgePhrase.value = "";
@@ -2654,6 +2707,7 @@
           if(!res?.ok) throw new Error(res?.error||"Goal sync failed");
           settings.sharedGoal=res.shared.goal;
           settings.goals.calories=Number(settings.sharedGoal.calorie_target);
+          if(Number(goal.waist_in)>0){settings.lastWaistDate=todayISO();await cloudPost({action:"saveWaistMeasurement",measurement:{measurement_id:`WM-BASE-${settings.sharedGoal.goal_version}`,date:todayISO(),waist_in:Number(goal.waist_in),goal_version:settings.sharedGoal.goal_version}});}
           const setupWeight=Number(settings.sharedGoal.current_weight_lb||goal.current_weight_lb);
           if(Number.isFinite(setupWeight)&&setupWeight>0){
             bw.value=String(setupWeight);
@@ -2688,15 +2742,17 @@
           settings.weeklyCheckins.push(activeWeeklyCheckin);
           settings.weeklyCheckins=settings.weeklyCheckins.slice(-12);
           settings.weeklyCheckinMilestone=activeWeeklyCheckin.milestone;
+          if(Number(activeWeeklyCheckin.waistIn)>0) settings.lastWaistDate=activeWeeklyCheckin.endDate;
           saveJSON(SETTINGS_KEY,settings);
+          await syncWeeklyCheckin(activeWeeklyCheckin);
           weeklyCheckinStep=4;renderWeeklyCheckinStep();return;
         }
         if(activeWeeklyCheckin.recommendedCalorieTarget){
           weeklyCheckinDone.disabled=true;
-          const ok=await decideAdjustment(true,activeWeeklyCheckin.recommendedCalorieTarget,{actual:activeWeeklyCheckin.actualRate,start:addDaysISO(activeWeeklyCheckin.endDate,-13),end:activeWeeklyCheckin.endDate,notes:"Accepted after three weekly reviews with steps, workouts, and general macro-plan adherence confirmed."});
+          const ok=await decideAdjustment(true,activeWeeklyCheckin.recommendedCalorieTarget,{actual:activeWeeklyCheckin.actualRate,start:activeWeeklyCheckin.trendStart,end:activeWeeklyCheckin.endDate,effectiveDate:nextMondayISO(),notes:"Accepted after at least 28 days and repeated reviews with step and general macro-plan adherence confirmed."});
           weeklyCheckinDone.disabled=false;
           if(!ok) return;
-          activeWeeklyCheckin.decision="accepted";saveJSON(SETTINGS_KEY,settings);
+          activeWeeklyCheckin.decision="accepted";saveJSON(SETTINGS_KEY,settings);await syncWeeklyCheckin(activeWeeklyCheckin);
         }
         closeWeeklyCheckin();
       });
@@ -2704,8 +2760,8 @@
         if(!activeWeeklyCheckin) return;
         if(weeklyCheckinStep===4&&activeWeeklyCheckin.recommendedCalorieTarget){
           weeklyCheckinBack.disabled=true;
-          await decideAdjustment(false,activeWeeklyCheckin.recommendedCalorieTarget,{actual:activeWeeklyCheckin.actualRate,start:addDaysISO(activeWeeklyCheckin.endDate,-13),end:activeWeeklyCheckin.endDate,notes:"Kept current target after reviewing steps, workouts, and general macro-plan adherence."});
-          weeklyCheckinBack.disabled=false;activeWeeklyCheckin.decision="kept";saveJSON(SETTINGS_KEY,settings);closeWeeklyCheckin();return;
+          await decideAdjustment(false,activeWeeklyCheckin.recommendedCalorieTarget,{actual:activeWeeklyCheckin.actualRate,start:activeWeeklyCheckin.trendStart,end:activeWeeklyCheckin.endDate,notes:"Kept current target after reviewing steps, workouts, and general macro-plan adherence."});
+          weeklyCheckinBack.disabled=false;activeWeeklyCheckin.decision="kept";saveJSON(SETTINGS_KEY,settings);await syncWeeklyCheckin(activeWeeklyCheckin);closeWeeklyCheckin();return;
         }
         if(weeklyCheckinStep>0){weeklyCheckinStep--;renderWeeklyCheckinStep();}
       });
@@ -2810,6 +2866,8 @@
       renderDashboard();
       syncGoalTogglesFromInputs();
       initializeCloudSync();
+      flushWeeklyOutbox();
+      window.addEventListener("online",flushWeeklyOutbox);
       setTimeout(()=>{if(!weeklyCheckinBackdrop.classList.contains("show")&&!resumePendingWeeklyDecision()) maybeShowWeeklyCheckin();},2500);
     })();
   </script>
