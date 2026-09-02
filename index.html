@@ -380,7 +380,7 @@
     </div>
 
     <div id="syncStatus" class="footerSync">● syncing</div>
-    <div class="appVersion">Fitness Tracker · v3.0.2</div>
+    <div class="appVersion">Fitness Tracker · v3.0.3</div>
   </div>
 
   <div class="weeklyCheckinBackdrop" id="weeklyCheckinBackdrop" aria-hidden="true">
@@ -450,7 +450,7 @@
         </div>
         <div id="wizardControl" class="wizardControl"></div>
         <div id="goalPreview" class="small" style="margin-top:12px"></div>
-        <div class="wizardNav"><button id="wizardBackBtn" class="wizardBack" type="button">← Back</button><button id="wizardNextBtn" class="wizardNext" type="button">Next →</button></div><div class="wizardVersion">Fitness Tracker · v3.0.2</div>
+        <div class="wizardNav"><button id="wizardBackBtn" class="wizardBack" type="button">← Back</button><button id="wizardNextBtn" class="wizardNext" type="button">Next →</button></div><div class="wizardVersion">Fitness Tracker · v3.0.3</div>
         <button id="saveGoalsBtn" class="primary" type="button" style="margin-top:12px">Save shared goals</button>
       </div>
       </div>
@@ -2495,17 +2495,16 @@
       function recommendedMovement(){
         const goal=goalPhysique.value;
         const baseline={sedentary:3500,light:5500,moderate:8500,very:11000}[goalActivity.value]||8500;
-        const steps=Math.max(5000,Math.min(10000,Math.round((baseline+1500)/500)*500));
-        return {steps,workouts:goal==="maintain"?2:3,baselineSteps:baseline};
+        return {steps:8000,workouts:goal==="maintain"?2:3,baselineSteps:baseline};
       }
       function movementOptions(){
         const rec=recommendedMovement();
         const goal=goalPhysique.value;
         const lowerWorkouts=goal==="maintain"?1:2;
         return [
-          {key:"lower",title:"Lower commitment",steps:Math.max(5000,Math.round(rec.baselineSteps/500)*500),workouts:lowerWorkouts,desc:"A realistic minimum based on your current activity."},
+          {key:"lower",title:"Lower commitment",steps:6000,workouts:lowerWorkouts,desc:"A realistic lower-movement option."},
           {key:"recommended",title:"Recommended",steps:rec.steps,workouts:rec.workouts,desc:"A manageable step increase plus the recommended training frequency."},
-          {key:"higher",title:"Higher movement",steps:Math.min(10000,rec.steps+1500),workouts:3,desc:"More walking and training if this is realistic for you."}
+          {key:"higher",title:"Higher movement",steps:10000,workouts:3,desc:"More walking and training if this is realistic for you."}
         ];
       }
 
@@ -2569,6 +2568,7 @@
           $("acceptMaintain").onclick=()=>{goalPhysique.value="maintain";goalRate.value=0;wizardTouched.leanstatus=true;renderWizardControl(step);};setWizardNextReady(!!wizardTouched.leanstatus);return;
         }
         if(step==="pace"){
+          if(!wizardTouched.pace){goalRate.value=goalPhysique.value==="build"?.25:.7;wizardTouched.pace=true;}
           const build=goalPhysique.value==="build";const opts=build?[[.15,"Lean gain","About "+(weight*.0015).toFixed(1)+"–"+(weight*.002).toFixed(1)+" lb/week. Slowest gain, least expected fat."],[.25,"Moderate gain · Recommended","About "+(weight*.0025).toFixed(1)+"–"+(weight*.003).toFixed(1)+" lb/week. Balanced muscle gain and appetite."],[.4,"Faster gain","About "+(weight*.004).toFixed(1)+"–"+(weight*.005).toFixed(1)+" lb/week. More scale gain, with more likely fat."]]:[[.5,"Conservative · 0.5%/week","Targets about "+(weight*.005).toFixed(1)+" lb/week on the scale. Easier recovery and strength retention."],[.7,"Recommended · 0.7%/week","Targets about "+(weight*.007).toFixed(1)+" lb/week on the scale. A strong balance of progress and performance."],[.9,"Aggressive · 0.9%/week","Targets about "+(weight*.009).toFixed(1)+" lb/week on the scale. Greater hunger and recovery demands; 1.0% is the upper boundary."]];wizardControl.innerHTML=`<div class="choiceStack">${opts.map(o=>choiceButton(o[0],o[1],o[2],String(goalRate.value)===String(o[0])&&wizardTouched.pace)).join("")}</div>`;wizardControl.querySelectorAll(".choiceCard").forEach(btn=>btn.onclick=()=>{goalRate.value=btn.dataset.value;wizardTouched.pace=true;wizardTouched.movementChoice="";renderWizardControl(step);});setWizardNextReady(!!wizardTouched.pace);return;
         }
         if(step==="movement"){
