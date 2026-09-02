@@ -380,7 +380,7 @@
     </div>
 
     <div id="syncStatus" class="footerSync">● syncing</div>
-    <div class="appVersion">Fitness Tracker · v3.0.1</div>
+    <div class="appVersion">Fitness Tracker · v3.0.2</div>
   </div>
 
   <div class="weeklyCheckinBackdrop" id="weeklyCheckinBackdrop" aria-hidden="true">
@@ -450,7 +450,7 @@
         </div>
         <div id="wizardControl" class="wizardControl"></div>
         <div id="goalPreview" class="small" style="margin-top:12px"></div>
-        <div class="wizardNav"><button id="wizardBackBtn" class="wizardBack" type="button">← Back</button><button id="wizardNextBtn" class="wizardNext" type="button">Next →</button></div><div class="wizardVersion">Fitness Tracker · v3.0.1</div>
+        <div class="wizardNav"><button id="wizardBackBtn" class="wizardBack" type="button">← Back</button><button id="wizardNextBtn" class="wizardNext" type="button">Next →</button></div><div class="wizardVersion">Fitness Tracker · v3.0.2</div>
         <button id="saveGoalsBtn" class="primary" type="button" style="margin-top:12px">Save shared goals</button>
       </div>
       </div>
@@ -1965,6 +1965,9 @@
             settings.sharedGoal=goalState.shared.goal||null;
             clearCompletedWizardDraft(settings.sharedGoal);
             saveJSON(SETTINGS_KEY,settings);
+            // Goal state is the only prerequisite for onboarding. Do not make a
+            // fresh user wait for the slower settings/history sync to finish.
+            if(needsForcedGoalSetup()) maybeOpenStarterGoals();
           }
           const init = await cloudGet("init");
           if(init && init.ok){
