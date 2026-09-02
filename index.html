@@ -380,7 +380,7 @@
     </div>
 
     <div id="syncStatus" class="footerSync">● syncing</div>
-    <div class="appVersion">Fitness Tracker · v3.0.0</div>
+    <div class="appVersion">Fitness Tracker · v3.0.1</div>
   </div>
 
   <div class="weeklyCheckinBackdrop" id="weeklyCheckinBackdrop" aria-hidden="true">
@@ -450,7 +450,7 @@
         </div>
         <div id="wizardControl" class="wizardControl"></div>
         <div id="goalPreview" class="small" style="margin-top:12px"></div>
-        <div class="wizardNav"><button id="wizardBackBtn" class="wizardBack" type="button">← Back</button><button id="wizardNextBtn" class="wizardNext" type="button">Next →</button></div><div class="wizardVersion">Fitness Tracker · v3.0.0</div>
+        <div class="wizardNav"><button id="wizardBackBtn" class="wizardBack" type="button">← Back</button><button id="wizardNextBtn" class="wizardNext" type="button">Next →</button></div><div class="wizardVersion">Fitness Tracker · v3.0.1</div>
         <button id="saveGoalsBtn" class="primary" type="button" style="margin-top:12px">Save shared goals</button>
       </div>
       </div>
@@ -1234,7 +1234,9 @@
       function freshStartNeedsBodyweight(){
         if(!resetModeActive()) return false;
         const dayWeight = ensureDayRecord(selectedDate).bodyWeight;
-        return !meaningful(dayWeight) && !meaningful(bw.value);
+        const goal=settings.sharedGoal,goalDate=String(goal?.goal_started_at||goal?.server_updated_at||goal?.updated_at||"").slice(0,10);
+        const setupWeightCounts=goalDate===String(settings.freshStartDate||todayISO())&&meaningful(goal?.current_weight_lb);
+        return !meaningful(dayWeight) && !meaningful(bw.value) && !setupWeightCounts;
       }
 
       function exerciseKey(day, ex){
@@ -2710,8 +2712,9 @@
           if(Number(goal.waist_in)>0){settings.lastWaistDate=todayISO();await cloudPost({action:"saveWaistMeasurement",measurement:{measurement_id:`WM-BASE-${settings.sharedGoal.goal_version}`,date:todayISO(),waist_in:Number(goal.waist_in),goal_version:settings.sharedGoal.goal_version}});}
           const setupWeight=Number(settings.sharedGoal.current_weight_lb||goal.current_weight_lb);
           if(Number.isFinite(setupWeight)&&setupWeight>0){
-            bw.value=String(setupWeight);
-            const today=ensureDayRecord(selectedDate); today.bodyWeight=String(setupWeight); today.updatedAt=new Date().toISOString();
+            const setupDate=settings.freshStartDate||todayISO();
+            selectedDate=setupDate; bw.value=String(setupWeight);
+            const today=ensureDayRecord(setupDate); today.bodyWeight=String(setupWeight); today.updatedAt=new Date().toISOString();
             saveJSON(STORE_KEY,store);
           }
           saveJSON(SETTINGS_KEY,settings);
