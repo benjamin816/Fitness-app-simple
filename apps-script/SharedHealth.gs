@@ -6,6 +6,7 @@ const SHEET_GOAL_ADJUSTMENTS = 'GoalAdjustments';
 const SHEET_PENDING_GOALS = 'PendingGoals';
 const SHEET_WEEKLY_CHECKINS = 'WeeklyCheckins';
 const SHEET_WAIST_MEASUREMENTS = 'WaistMeasurements';
+const SHEET_FOOD_CAPTURES = 'FoodCaptures';
 
 const HEALTH_GOAL_HEADERS = [
   'profile_id','schema_version','age','sex','height_in','current_weight_lb',
@@ -23,6 +24,7 @@ const PLANNED_DAYTIME_HEADERS = [
 const PENDING_GOAL_HEADERS = ['pending_id','status','effective_date','base_goal_version','proposed_calorie_target','created_at','server_updated_at','activated_at'];
 const WEEKLY_CHECKIN_HEADERS = ['checkin_id','date','review_number','goal_version','goal_type','calorie_target','protein_min_g','target_weight_change_pct_week','valid_weight_count','trend_window_start','trend_window_end','observed_weight_change_pct_week','reference_body_weight','step_adherence','workout_adherence','food_adherence','waist_in','waist_measurement_date','implied_energy_gap_estimate','recommendation_type','proposed_calorie_target','user_decision','created_at','server_updated_at'];
 const WAIST_HEADERS = ['measurement_id','date','waist_in','goal_version','created_at','server_updated_at'];
+const FOOD_CAPTURE_HEADERS = ['capture_id','date','captured_at','raw_text','input_type','status','estimated_calories','estimated_protein_g','calorie_low','calorie_high','protein_low_g','protein_high_g','confidence','notes','processed_at','processor','updated_at','server_updated_at'];
 
 const GOAL_ADJUSTMENT_HEADERS = [
   'adjustment_id','created_at','status','target_loss_pct_week','actual_loss_pct_week',
@@ -31,11 +33,11 @@ const GOAL_ADJUSTMENT_HEADERS = [
 ];
 
 function isSharedGetAction_(action) {
-  return ['getSharedState','getHealthGoals','getPlannedDaytime','getWeeklyCheckins'].indexOf(action) >= 0;
+  return ['getSharedState','getHealthGoals','getPlannedDaytime','getWeeklyCheckins','getFoodCaptures','getPendingFoodCaptures'].indexOf(action) >= 0;
 }
 
 function isSharedPostAction_(action) {
-  return ['saveHealthGoals','savePlannedDaytime','decideGoalAdjustment','saveWeeklyCheckin','saveWaistMeasurement'].indexOf(action) >= 0;
+  return ['saveHealthGoals','savePlannedDaytime','decideGoalAdjustment','saveWeeklyCheckin','saveWaistMeasurement','saveFoodCapture','updateFoodCaptureEstimate'].indexOf(action) >= 0;
 }
 
 function handleSharedGet_(action, params) {
@@ -44,6 +46,8 @@ function handleSharedGet_(action, params) {
     return jsonOut({ ok:true, rows:plannedDaytimeRange_(String(params.start||''), String(params.end||'')) });
   }
   if (action === 'getWeeklyCheckins') return jsonOut({ok:true,rows:rowsAsObjects_(getWeeklyCheckinsSheet_())});
+  if (action === 'getFoodCaptures') return jsonOut({ok:true,rows:foodCaptures_(String(params.date||''),false)});
+  if (action === 'getPendingFoodCaptures') return jsonOut({ok:true,rows:foodCaptures_(String(params.date||''),true)});
   return jsonOut({ ok:true, shared:sharedState_() });
 }
 
@@ -56,6 +60,8 @@ function handleSharedPost_(action, body) {
     if (action === 'decideGoalAdjustment') return jsonOut(decideGoalAdjustment_(body));
     if (action === 'saveWeeklyCheckin') return jsonOut(saveWeeklyCheckin_(body.checkin||{}));
     if (action === 'saveWaistMeasurement') return jsonOut(saveWaistMeasurement_(body.measurement||{}));
+    if (action === 'saveFoodCapture') return jsonOut(saveFoodCapture_(body.capture||{}));
+    if (action === 'updateFoodCaptureEstimate') return jsonOut(updateFoodCaptureEstimate_(body.estimate||body.capture||{}));
     return jsonOut({ok:false,error:'Unknown shared action'});
   } finally {
     lock.releaseLock();
@@ -175,6 +181,21 @@ function currentPendingGoal_(){ const rows=rowsAsObjects_(getPendingGoalsSheet_(
 function activateDuePendingGoal_(){ const pending=currentPendingGoal_(); if(!pending)return; const today=Utilities.formatDate(new Date(),Session.getScriptTimeZone()||'America/New_York','yyyy-MM-dd'); if(String(pending.effective_date)>today)return; const goal=currentHealthGoal_(); if(!goal||Number(goal.goal_version)!==Number(pending.base_goal_version)){pending.status='cancelled';pending.server_updated_at=new Date().toISOString();replaceSingleRow_(getPendingGoalsSheet_(),PENDING_GOAL_HEADERS,pending);return;} pending.status='activating';pending.server_updated_at=new Date().toISOString();replaceSingleRow_(getPendingGoalsSheet_(),PENDING_GOAL_HEADERS,pending); const next=Object.assign({},goal,{calorie_target:Number(pending.proposed_calorie_target),goal_started_at:new Date().toISOString(),change_type:'adaptive'}); saveHealthGoals_(next,Number(goal.goal_version)); pending.status='activated';pending.activated_at=new Date().toISOString();pending.server_updated_at=pending.activated_at;replaceSingleRow_(getPendingGoalsSheet_(),PENDING_GOAL_HEADERS,pending); }
 function saveWeeklyCheckin_(input){ const now=new Date().toISOString(), id=String(input.checkin_id||'WC-'+Utilities.getUuid()); const row={}; WEEKLY_CHECKIN_HEADERS.forEach(h=>row[h]=input[h]===undefined?'':input[h]); row.checkin_id=id;row.created_at=String(row.created_at||now);row.server_updated_at=now;upsertObjectByKey_(getWeeklyCheckinsSheet_(),WEEKLY_CHECKIN_HEADERS,'checkin_id',row);if(input.waist_in)saveWaistMeasurement_({measurement_id:'WM-'+id,date:input.waist_measurement_date||input.date,waist_in:input.waist_in,goal_version:input.goal_version});return{ok:true,checkin:row}; }
 function saveWaistMeasurement_(input){ const now=new Date().toISOString(); const row={measurement_id:String(input.measurement_id||'WM-'+Utilities.getUuid()),date:String(input.date||Utilities.formatDate(new Date(),Session.getScriptTimeZone()||'America/New_York','yyyy-MM-dd')),waist_in:numOrBlank_(input.waist_in),goal_version:numOrBlank_(input.goal_version),created_at:now,server_updated_at:now};upsertObjectByKey_(getWaistMeasurementsSheet_(),WAIST_HEADERS,'measurement_id',row);return{ok:true,measurement:row}; }
+function saveFoodCapture_(input){
+  const now=new Date().toISOString(),text=String(input.raw_text||'').trim(),date=String(input.date||Utilities.formatDate(new Date(),Session.getScriptTimeZone()||'America/New_York','yyyy-MM-dd'));
+  if(!text)return{ok:false,error:'Food description is required.'};
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(date))return{ok:false,error:'A valid date is required.'};
+  const row={capture_id:String(input.capture_id||'FC-'+Utilities.getUuid()),date:date,captured_at:String(input.captured_at||now),raw_text:text,input_type:String(input.input_type||'typed'),status:'pending',estimated_calories:'',estimated_protein_g:'',calorie_low:'',calorie_high:'',protein_low_g:'',protein_high_g:'',confidence:'',notes:'',processed_at:'',processor:'',updated_at:now,server_updated_at:now};
+  upsertObjectByKey_(getFoodCapturesSheet_(),FOOD_CAPTURE_HEADERS,'capture_id',row);return{ok:true,capture:row};
+}
+function updateFoodCaptureEstimate_(input){
+  const id=String(input.capture_id||'');if(!id)return{ok:false,error:'capture_id is required.'};
+  const sheet=getFoodCapturesSheet_(),rows=rowsAsObjects_(sheet),existing=rows.find(r=>String(r.capture_id)===id);if(!existing)return{ok:false,error:'Food capture not found.'};
+  const now=new Date().toISOString(),row={};FOOD_CAPTURE_HEADERS.forEach(h=>row[h]=existing[h]===undefined?'':existing[h]);
+  row.status=String(input.status||'estimated');row.estimated_calories=Math.max(0,Math.round(Number(input.estimated_calories)||0));row.estimated_protein_g=Math.max(0,Math.round(Number(input.estimated_protein_g)||0));row.calorie_low=Math.max(0,Math.round(Number(input.calorie_low)||row.estimated_calories));row.calorie_high=Math.max(row.calorie_low,Math.round(Number(input.calorie_high)||row.estimated_calories));row.protein_low_g=Math.max(0,Math.round(Number(input.protein_low_g)||row.estimated_protein_g));row.protein_high_g=Math.max(row.protein_low_g,Math.round(Number(input.protein_high_g)||row.estimated_protein_g));row.confidence=String(input.confidence||'medium');row.notes=String(input.notes||'');row.processed_at=now;row.processor=String(input.processor||'codex_automation');row.updated_at=now;row.server_updated_at=now;
+  upsertObjectByKey_(sheet,FOOD_CAPTURE_HEADERS,'capture_id',row);return{ok:true,capture:row};
+}
+function foodCaptures_(date,pendingOnly){return rowsAsObjects_(getFoodCapturesSheet_()).filter(r=>(!date||String(r.date)===date)&&(!pendingOnly||String(r.status)==='pending'));}
 
 function plannedDaytimeRange_(start, end) {
   return rowsAsObjects_(getPlannedDaytimeSheet_()).filter(r => {
@@ -188,9 +209,10 @@ function getGoalAdjustmentsSheet_(){ return ensureSharedSheet_(SHEET_GOAL_ADJUST
 function getPendingGoalsSheet_(){return ensureSharedSheet_(SHEET_PENDING_GOALS,PENDING_GOAL_HEADERS);}
 function getWeeklyCheckinsSheet_(){return ensureSharedSheet_(SHEET_WEEKLY_CHECKINS,WEEKLY_CHECKIN_HEADERS);}
 function getWaistMeasurementsSheet_(){return ensureSharedSheet_(SHEET_WAIST_MEASUREMENTS,WAIST_HEADERS);}
+function getFoodCapturesSheet_(){return ensureSharedSheet_(SHEET_FOOD_CAPTURES,FOOD_CAPTURE_HEADERS);}
 
 function purgeSharedHealthData_(){
-  [getHealthGoalsSheet_(),getPlannedDaytimeSheet_(),getGoalAdjustmentsSheet_(),getPendingGoalsSheet_(),getWeeklyCheckinsSheet_(),getWaistMeasurementsSheet_()].forEach(sheet=>{
+  [getHealthGoalsSheet_(),getPlannedDaytimeSheet_(),getGoalAdjustmentsSheet_(),getPendingGoalsSheet_(),getWeeklyCheckinsSheet_(),getWaistMeasurementsSheet_(),getFoodCapturesSheet_()].forEach(sheet=>{
     const last=sheet.getLastRow();
     if(last>1) sheet.deleteRows(2,last-1);
   });
