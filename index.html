@@ -300,6 +300,7 @@
     .workoutNav{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:14px}
     .workoutNav .primary{margin-left:auto}
     .progressDecision{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+    .weightEntryRow{display:grid;grid-template-columns:1fr auto;gap:9px;align-items:end}.weightEntryRow button{min-width:92px;height:46px}.weightEntryStatus{min-height:18px;margin-top:6px;font-size:11px;font-weight:800;color:var(--muted)}.weightEntryStatus.saved{color:#087f5b}.weightEntryStatus.failed{color:#b42318}.weightLocked{background:#effaf6!important;border-color:#8ed9bf!important;color:#236b55!important;font-weight:900}
     details.utility{margin-top:16px;color:var(--muted);font-size:12px}
     details.utility summary{cursor:pointer;font-weight:800}
     @media(max-width:640px){.goalForm{grid-template-columns:1fr}.modal{padding:14px}.exerciseRow{display:block}.exerciseRow img,.exerciseRow video{width:100%;height:180px;margin-bottom:12px}.sub{display:none}.topActions{width:100%;justify-content:center}.wrap{margin-top:12px}.card{padding:14px}}
@@ -335,7 +336,8 @@
         <div>
           <div>
             <label>Body weight (lb)</label>
-            <input id="bw" type="number" step="0.1" placeholder="e.g. 159.0" />
+            <div class="weightEntryRow"><input id="bw" type="number" step="0.1" placeholder="e.g. 159.0" /><button id="saveWeightBtn" class="primary" type="button">Log weight</button><button id="editWeightBtn" type="button" hidden>Edit</button></div>
+            <div id="weightEntryStatus" class="weightEntryStatus">Enter today’s weight, then log it.</div>
           </div>
         </div>
         <select id="workoutSelect" hidden aria-hidden="true"></select><div id="workoutDesc" hidden></div>
@@ -379,7 +381,7 @@
     </div>
 
     <div id="syncStatus" class="footerSync">● syncing</div>
-    <div class="appVersion">Fitness Tracker · v3.3.0</div>
+    <div class="appVersion">Fitness Tracker · v3.4.0</div>
   </div>
 
   <div class="savingPlan" id="savingPlan" aria-hidden="true"><div><div class="savingSpinner"></div><h2>Saving your plan…</h2><p>Connecting your goals across both apps.</p></div></div>
@@ -454,7 +456,7 @@
         </div>
         <div id="wizardControl" class="wizardControl"></div>
         <div id="goalPreview" class="small" style="margin-top:12px"></div>
-        <div class="wizardNav"><button id="wizardBackBtn" class="wizardBack" type="button">← Back</button><button id="wizardNextBtn" class="wizardNext" type="button">Next →</button></div><div class="wizardVersion">Fitness Tracker · v3.3.0</div>
+        <div class="wizardNav"><button id="wizardBackBtn" class="wizardBack" type="button">← Back</button><button id="wizardNextBtn" class="wizardNext" type="button">Next →</button></div><div class="wizardVersion">Fitness Tracker · v3.4.0</div>
         <button id="saveGoalsBtn" class="primary" type="button" style="margin-top:12px">Save shared goals</button>
       </div>
       </div>
@@ -695,6 +697,7 @@
       });
 
       const bw = $("bw");
+      const saveWeightBtn = $("saveWeightBtn"), editWeightBtn = $("editWeightBtn"), weightEntryStatus = $("weightEntryStatus");
       const workoutSelect = $("workoutSelect");
       const workoutDesc = $("workoutDesc");
       const openPlanBtn = $("openPlanBtn");
@@ -818,6 +821,9 @@
         const src = day && typeof day === "object" ? day : {};
         return {
           bodyWeight: src.bodyWeight ?? "",
+          weightSaved: meaningful(src.bodyWeight) ? src.weightSaved !== false : false,
+          weightSavedAt: src.weightSavedAt || "",
+          pendingCloudSync: !!src.pendingCloudSync,
           workout: src.workout ?? "",
           workoutType: src.workoutType || src.workout || "",
           baselineCompleted: src.baselineCompleted === true || String(src.baselineCompleted).toLowerCase() === "true",
@@ -1423,7 +1429,6 @@
         const opts=needsBodyweight?[{value:"",label:"Enter bodyweight first"}]:[{value:mode,label:mode==="BASELINE"?"Baseline Test":"Full Body Workout"}];
         workoutSelect.innerHTML = opts.map(o => `<option value="${o.value}">${o.label}</option>`).join("");
         workoutSelect.value=needsBodyweight?"":(baselineDay?"BASELINE":mode);
-        if(!needsBodyweight&&!dayWorkout){day.workout=mode;day.workoutType=mode;}
         workoutSelect.disabled = !!needsBodyweight;
         baselineHint.style.display = resetModeActive() ? "block" : "none";
         workoutDesc.textContent = needsBodyweight
@@ -1481,9 +1486,12 @@
       function collectEditorData(){
         syncGoalTogglesFromInputs();
         const existing = ensureDayRecord(selectedDate);
-        const workoutType = workoutSelect.value || existing.workoutType || existing.workout || "";
+        const existingWorkoutType=existing.workoutType||existing.workout||"",hasActualWorkout=existingWorkoutType==="BASELINE"||existing.workoutCompleted||isMeaningfulWorkoutLog(existing.workoutLog),workoutType=hasActualWorkout?existingWorkoutType:"";
         return {
           bodyWeight: bw.value || "",
+          weightSaved: existing.weightSaved || false,
+          weightSavedAt: existing.weightSavedAt || "",
+          pendingCloudSync: existing.pendingCloudSync || false,
           workout: workoutType,
           workoutType,
           baselineCompleted: existing.baselineCompleted || false,
@@ -1503,8 +1511,17 @@
             energy: energyVal
           },
           workoutLog: existing.workoutLog || {},
+          workoutCompleted: !!existing.workoutCompleted,
+          workoutCompletedAt: existing.workoutCompletedAt || "",
           updatedAt: new Date().toISOString()
         };
+      }
+
+      function renderWeightEntryState(day=store.days[selectedDate]){
+        const saved=!!day?.weightSaved&&meaningful(day?.bodyWeight);
+        bw.disabled=saved;bw.classList.toggle("weightLocked",saved);saveWeightBtn.hidden=saved;editWeightBtn.hidden=!saved;
+        weightEntryStatus.className="weightEntryStatus"+(saved?" saved":"");
+        weightEntryStatus.textContent=saved?(day.pendingCloudSync?"Saved on this device · waiting to sync":"✓ Weight logged and synced"):(meaningful(bw.value)?"Tap Log weight to save it.":"Enter today’s weight, then log it.");
       }
 
       function loadDayIntoEditor(date){
@@ -1522,9 +1539,10 @@
         applyEnergy(null);
 
         updateWorkoutOptions();
-        if(!day) return;
+        if(!day){renderWeightEntryState(null);return;}
 
         bw.value = day.bodyWeight ?? "";
+        renderWeightEntryState(day);
         const dayWorkout = day.workoutType || day.workout || "";
         workoutSelect.value = [...workoutSelect.options].some(o => o.value === dayWorkout) ? dayWorkout : "";
         workoutDesc.textContent = workoutDescription(workoutSelect.value);
@@ -1953,7 +1971,7 @@
           }
           if(!isMeaningfulDay(day)){
             setSyncStatus("● synced");
-            return;
+            return true;
           }
           const payload = {
             action: "saveSnapshot",
@@ -1971,14 +1989,18 @@
           setSyncStatus("● syncing");
           const res = await cloudPost(payload);
           if(res && res.ok){
+            const savedDay=ensureDayRecord(selectedDate);savedDay.pendingCloudSync=false;saveJSON(STORE_KEY,store);renderWeightEntryState(savedDay);
             cloudState.lastSyncAt = new Date().toISOString();
             saveJSON(CLOUD_KEY, cloudState);
             setSyncStatus("● synced");
+            return true;
           } else {
             setSyncStatus("● sync failed");
+            return false;
           }
         } catch {
           setSyncStatus("● sync failed");
+          return false;
         }
       }
 
@@ -2085,12 +2107,15 @@
       function replaceLocalRangeWithCloud(start, end, range){
         const keep = {};
         const all = store.days || {};
+        const pending = {};
         Object.keys(all).forEach(d => {
           if(d < start || d > end) keep[d] = all[d];
+          else if(all[d]?.pendingCloudSync) pending[d]=normalizedDay(all[d]);
         });
         store.days = keep;
         mergeCloudDaily(range.days || []);
         mergeCloudExercises(range.exercises || []);
+        Object.keys(pending).forEach(d=>{store.days[d]=pending[d];});
       }
 
       async function initializeCloudSync(){
@@ -2219,8 +2244,9 @@
         dates.slice(0,160).forEach(date => {
           const day = normalizedDay(store.days[date]);
           const isBaselineDay = (day.workoutType || day.workout) === "BASELINE";
-          const w = isBaselineDay ? "Baseline Test" : (day.workout ? `Workout ${day.workout}` : "No workout");
-          const workoutBadgeClass = (isBaselineDay && baselineTestCompleted(date)) ? "badge good" : "badge";
+          const hasActualWorkout=isBaselineDay||day.workoutCompleted||isMeaningfulWorkoutLog(day.workoutLog);
+          const w = isBaselineDay ? "Baseline Test" : (hasActualWorkout ? "Full Body Workout" : "No workout");
+          const workoutBadgeClass = hasActualWorkout ? "badge good" : "badge";
           const bwTxt = meaningful(day.bodyWeight) ? `${day.bodyWeight} lb` : "No weigh-in";
 
           const item = document.createElement("div");
@@ -2870,7 +2896,7 @@
           if(Number.isFinite(setupWeight)&&setupWeight>0){
             const setupDate=settings.freshStartDate||todayISO();
             selectedDate=setupDate; bw.value=String(setupWeight);
-            const today=ensureDayRecord(setupDate); today.bodyWeight=String(setupWeight); today.updatedAt=new Date().toISOString();
+            const today=ensureDayRecord(setupDate); today.bodyWeight=String(setupWeight);today.weightSaved=true;today.weightSavedAt=new Date().toISOString();today.pendingCloudSync=true; today.updatedAt=today.weightSavedAt;
             saveJSON(STORE_KEY,store);
           }
           saveJSON(SETTINGS_KEY,settings);
@@ -2899,7 +2925,14 @@
         }
       }, 25000);
 
-      bw.addEventListener("input", () => { refreshGoalTexts(); updateWorkoutOptions(); queueAutoSave(); });
+      bw.addEventListener("input", () => { refreshGoalTexts();weightEntryStatus.className="weightEntryStatus";weightEntryStatus.textContent=meaningful(bw.value)?"Tap Log weight to save it.":"Enter today’s weight, then log it."; });
+      saveWeightBtn.addEventListener("click",async()=>{
+        const value=Number(bw.value);if(!Number.isFinite(value)||value<60||value>700){weightEntryStatus.className="weightEntryStatus failed";weightEntryStatus.textContent="Enter a valid weight between 60 and 700 lb.";return;}
+        const day=ensureDayRecord(selectedDate),now=new Date().toISOString();day.bodyWeight=String(Math.round(value*10)/10);day.weightSaved=true;day.weightSavedAt=now;day.pendingCloudSync=true;day.updatedAt=now;bw.value=day.bodyWeight;saveJSON(STORE_KEY,store);renderWeightEntryState(day);renderHistory();renderWeightAverage();renderDashboard();refreshGoalTexts();updateWorkoutOptions();
+        saveWeightBtn.disabled=true;const synced=await syncCurrentDayToCloud();saveWeightBtn.disabled=false;if(!synced){weightEntryStatus.className="weightEntryStatus failed";weightEntryStatus.textContent="Saved on this device. Cloud sync will retry when connected.";}
+        if(value>=60&&value<=700)maybeShowWeeklyCheckin();
+      });
+      editWeightBtn.addEventListener("click",()=>{const day=ensureDayRecord(selectedDate);day.weightSaved=false;saveJSON(STORE_KEY,store);renderWeightEntryState(day);bw.focus();bw.select();});
       function closeWeeklyCheckin(){weeklyCheckinBackdrop.classList.remove("show");weeklyCheckinBackdrop.setAttribute("aria-hidden","true");activeWeeklyCheckin=null;renderAdaptiveCoaching();}
       async function completeWeeklyReview(record){
         record.completedAt=new Date().toISOString();record.result=buildWeeklyResult(record);
@@ -3047,6 +3080,7 @@
       flushFoodCaptureOutbox();
       window.addEventListener("online",flushWeeklyOutbox);
       window.addEventListener("online",flushFoodCaptureOutbox);
+      window.addEventListener("online",()=>{if(store.days[selectedDate]?.pendingCloudSync)syncCurrentDayToCloud();});
       setTimeout(()=>{if(!weeklyCheckinBackdrop.classList.contains("show")&&!resumePendingWeeklyDecision()) maybeShowWeeklyCheckin();},2500);
     })();
   </script>
