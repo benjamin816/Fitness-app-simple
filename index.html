@@ -381,7 +381,7 @@
     </div>
 
     <div id="syncStatus" class="footerSync">● syncing</div>
-    <div class="appVersion">Fitness Tracker · v3.4.0</div>
+    <div class="appVersion">Fitness Tracker · v3.4.1</div>
   </div>
 
   <div class="savingPlan" id="savingPlan" aria-hidden="true"><div><div class="savingSpinner"></div><h2>Saving your plan…</h2><p>Connecting your goals across both apps.</p></div></div>
@@ -456,7 +456,7 @@
         </div>
         <div id="wizardControl" class="wizardControl"></div>
         <div id="goalPreview" class="small" style="margin-top:12px"></div>
-        <div class="wizardNav"><button id="wizardBackBtn" class="wizardBack" type="button">← Back</button><button id="wizardNextBtn" class="wizardNext" type="button">Next →</button></div><div class="wizardVersion">Fitness Tracker · v3.4.0</div>
+        <div class="wizardNav"><button id="wizardBackBtn" class="wizardBack" type="button">← Back</button><button id="wizardNextBtn" class="wizardNext" type="button">Next →</button></div><div class="wizardVersion">Fitness Tracker · v3.4.1</div>
         <button id="saveGoalsBtn" class="primary" type="button" style="margin-top:12px">Save shared goals</button>
       </div>
       </div>
@@ -1973,13 +1973,14 @@
             setSyncStatus("● synced");
             return true;
           }
+          const hasActualWorkout=!!day.workoutCompleted||isMeaningfulWorkoutLog(day.workoutLog);
           const payload = {
             action: "saveSnapshot",
             date: selectedDate,
             updatedAt: day.updatedAt,
             bodyWeight: day.bodyWeight,
-            workoutDay: day.workout,
-            workoutType: day.workoutType || day.workout || "",
+            workoutDay: hasActualWorkout ? day.workout : "",
+            workoutType: hasActualWorkout ? (day.workoutType || day.workout || "") : "",
             baselineCompleted: !!day.baselineCompleted,
             baselineCompletedDate: day.baselineCompletedDate || "",
             baselineData: day.baselineData || {},
@@ -1989,6 +1990,18 @@
           setSyncStatus("● syncing");
           const res = await cloudPost(payload);
           if(res && res.ok){
+            // Apps Script can return a successful write response even when a
+            // sheet date is later unreadable because Sheets coerced it to a
+            // Date value. Confirm the exact weight can be read back before
+            // clearing the durable local outbox flag.
+            const verify=await cloudGet("getRange",{start:selectedDate,end:selectedDate,_:Date.now()});
+            const matching=(verify?.days||[]).filter(row=>String(row.date||"").slice(0,10)===selectedDate);
+            const latest=matching.sort((a,b)=>String(b.updated_at||"").localeCompare(String(a.updated_at||"")))[0];
+            const weightMatches=!meaningful(day.bodyWeight)||(Number(latest?.body_weight_lb)===Number(day.bodyWeight));
+            if(!latest||!weightMatches){
+              setSyncStatus("● sync failed");
+              return false;
+            }
             const savedDay=ensureDayRecord(selectedDate);savedDay.pendingCloudSync=false;saveJSON(STORE_KEY,store);renderWeightEntryState(savedDay);
             cloudState.lastSyncAt = new Date().toISOString();
             saveJSON(CLOUD_KEY, cloudState);
@@ -2244,8 +2257,8 @@
         dates.slice(0,160).forEach(date => {
           const day = normalizedDay(store.days[date]);
           const isBaselineDay = (day.workoutType || day.workout) === "BASELINE";
-          const hasActualWorkout=isBaselineDay||day.workoutCompleted||isMeaningfulWorkoutLog(day.workoutLog);
-          const w = isBaselineDay ? "Baseline Test" : (hasActualWorkout ? "Full Body Workout" : "No workout");
+          const hasActualWorkout=!!day.workoutCompleted||isMeaningfulWorkoutLog(day.workoutLog);
+          const w = hasActualWorkout ? (isBaselineDay ? "Baseline Test" : "Full Body Workout") : "No workout";
           const workoutBadgeClass = hasActualWorkout ? "badge good" : "badge";
           const bwTxt = meaningful(day.bodyWeight) ? `${day.bodyWeight} lb` : "No weigh-in";
 
