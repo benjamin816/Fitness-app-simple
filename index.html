@@ -381,7 +381,7 @@
     </div>
 
     <div id="syncStatus" class="footerSync">● syncing</div>
-    <div class="appVersion">Fitness Tracker · v3.4.1</div>
+    <div class="appVersion">Fitness Tracker · v3.4.2</div>
   </div>
 
   <div class="savingPlan" id="savingPlan" aria-hidden="true"><div><div class="savingSpinner"></div><h2>Saving your plan…</h2><p>Connecting your goals across both apps.</p></div></div>
@@ -456,7 +456,7 @@
         </div>
         <div id="wizardControl" class="wizardControl"></div>
         <div id="goalPreview" class="small" style="margin-top:12px"></div>
-        <div class="wizardNav"><button id="wizardBackBtn" class="wizardBack" type="button">← Back</button><button id="wizardNextBtn" class="wizardNext" type="button">Next →</button></div><div class="wizardVersion">Fitness Tracker · v3.4.1</div>
+        <div class="wizardNav"><button id="wizardBackBtn" class="wizardBack" type="button">← Back</button><button id="wizardNextBtn" class="wizardNext" type="button">Next →</button></div><div class="wizardVersion">Fitness Tracker · v3.4.2</div>
         <button id="saveGoalsBtn" class="primary" type="button" style="margin-top:12px">Save shared goals</button>
       </div>
       </div>
@@ -692,6 +692,7 @@
 
       let timers = loadJSON(TIMER_KEY, {});
       let cloudState = loadJSON(CLOUD_KEY, { lastSyncAt:"" });
+      let cloudHistoryLoaded = false;
       Object.keys(store.days || {}).forEach(d => {
         store.days[d] = normalizedDay(store.days[d]);
       });
@@ -2133,8 +2134,31 @@
 
       async function initializeCloudSync(){
         setSyncStatus("● syncing");
+        const start = addDaysISO(todayISO(), -180);
+        const end = todayISO();
+        // Begin independent reads together. History is intentionally handled
+        // first so it never waits behind goals, settings, or meal-plan calls.
+        const goalRequest=cloudGet("getSharedState").catch(()=>null);
+        const initRequest=cloudGet("init").catch(()=>null);
+        const rangeRequest=cloudGet("getRange", { start, end, _:Date.now() }).catch(()=>null);
+        const plansRequest=cloudGet("getPlannedDaytime", { start, end }).catch(()=>null);
         try{
-          const goalState=await cloudGet("getSharedState");
+          const range=await rangeRequest;
+          cloudHistoryLoaded=true;
+          if(range?.ok){
+            replaceLocalRangeWithCloud(start,end,range);
+            saveJSON(STORE_KEY,store);
+            loadDayIntoEditor(selectedDate);
+            renderHistory();
+            renderWeightAverage();
+            renderDashboard();
+            renderAdaptiveCoaching();
+            updateWorkoutOptions();
+          }else{
+            renderHistory();
+          }
+
+          const goalState=await goalRequest;
           if(goalState?.ok&&goalState.shared&&Object.prototype.hasOwnProperty.call(goalState.shared,"goal")){
             settings.sharedGoal=goalState.shared.goal||null;
             clearCompletedWizardDraft(settings.sharedGoal);
@@ -2143,7 +2167,7 @@
             // fresh user wait for the slower settings/history sync to finish.
             if(needsForcedGoalSetup()) maybeOpenStarterGoals();
           }
-          const init = await cloudGet("init");
+          const init = await initRequest;
           if(init && init.ok){
             const s = init.settings || {};
             if(s.weight_increment_lb) settings.increment = Number(s.weight_increment_lb);
@@ -2151,35 +2175,19 @@
             if(init.shared && Object.prototype.hasOwnProperty.call(init.shared,"goal")){settings.sharedGoal = init.shared.goal || null;clearCompletedWizardDraft(settings.sharedGoal);}
             saveJSON(SETTINGS_KEY, settings);
           }
-          const start = addDaysISO(todayISO(), -180);
-          const end = todayISO();
-          const range = await cloudGet("getRange", { start, end });
           if(range && range.ok){
-            // Spreadsheet is source of truth whenever cloud is reachable.
-            // This prevents stale local entries from surviving manual sheet deletes.
-            replaceLocalRangeWithCloud(start, end, range);
-            const shared = await cloudGet("getSharedState");
-            if(shared?.ok && shared.shared){
-              if(Object.prototype.hasOwnProperty.call(shared.shared,"goal")){settings.sharedGoal = shared.shared.goal || null;clearCompletedWizardDraft(settings.sharedGoal);}
-              const plans = await cloudGet("getPlannedDaytime", { start, end });
-              plannedDaytime = Object.fromEntries((plans?.rows||[]).map(row=>[String(row.date),row]));
-              saveJSON(SETTINGS_KEY,settings);
-            }
+            const plans=await plansRequest;
+            plannedDaytime=Object.fromEntries((plans?.rows||[]).map(row=>[String(row.date),row]));
+            saveJSON(SETTINGS_KEY,settings);
             await refreshFoodCaptures(selectedDate);
-            saveJSON(STORE_KEY, store);
             refreshGoalTexts();
-            loadDayIntoEditor(selectedDate);
-            renderHistory();
-            renderWeightAverage();
-            renderDashboard();
-            refreshGoalTexts();
-            renderAdaptiveCoaching();
-            updateWorkoutOptions();
             setSyncStatus("● synced");
           } else {
             setSyncStatus("● sync failed");
           }
         } catch {
+          cloudHistoryLoaded=true;
+          renderHistory();
           setSyncStatus("● sync failed");
         } finally {
           if(needsForcedGoalSetup()) maybeOpenStarterGoals();
@@ -2250,7 +2258,9 @@
         const dates = sortedDatesDesc();
         historyList.innerHTML = "";
         if(!dates.length){
-          historyList.innerHTML = '<div class="small">No meaningful saved days yet. Start logging.</div>';
+          historyList.innerHTML = cloudHistoryLoaded
+            ? '<div class="small">No meaningful saved days yet. Start logging.</div>'
+            : '<div class="small">Loading saved history…</div>';
           return;
         }
 
