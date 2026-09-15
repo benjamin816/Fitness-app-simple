@@ -381,7 +381,7 @@
     </div>
 
     <div id="syncStatus" class="footerSync">● syncing</div>
-    <div class="appVersion">Fitness Tracker · v3.4.2</div>
+    <div class="appVersion">Fitness Tracker · v3.4.3</div>
   </div>
 
   <div class="savingPlan" id="savingPlan" aria-hidden="true"><div><div class="savingSpinner"></div><h2>Saving your plan…</h2><p>Connecting your goals across both apps.</p></div></div>
@@ -456,7 +456,7 @@
         </div>
         <div id="wizardControl" class="wizardControl"></div>
         <div id="goalPreview" class="small" style="margin-top:12px"></div>
-        <div class="wizardNav"><button id="wizardBackBtn" class="wizardBack" type="button">← Back</button><button id="wizardNextBtn" class="wizardNext" type="button">Next →</button></div><div class="wizardVersion">Fitness Tracker · v3.4.2</div>
+        <div class="wizardNav"><button id="wizardBackBtn" class="wizardBack" type="button">← Back</button><button id="wizardNextBtn" class="wizardNext" type="button">Next →</button></div><div class="wizardVersion">Fitness Tracker · v3.4.3</div>
         <button id="saveGoalsBtn" class="primary" type="button" style="margin-top:12px">Save shared goals</button>
       </div>
       </div>
@@ -693,6 +693,7 @@
       let timers = loadJSON(TIMER_KEY, {});
       let cloudState = loadJSON(CLOUD_KEY, { lastSyncAt:"" });
       let cloudHistoryLoaded = false;
+      let editingWeightDate = "";
       Object.keys(store.days || {}).forEach(d => {
         store.days[d] = normalizedDay(store.days[d]);
       });
@@ -1519,10 +1520,28 @@
       }
 
       function renderWeightEntryState(day=store.days[selectedDate]){
-        const saved=!!day?.weightSaved&&meaningful(day?.bodyWeight);
+        const saved=!!day?.weightSaved&&meaningful(day?.bodyWeight)&&editingWeightDate!==selectedDate;
         bw.disabled=saved;bw.classList.toggle("weightLocked",saved);saveWeightBtn.hidden=saved;editWeightBtn.hidden=!saved;
+        saveWeightBtn.textContent=selectedDate<todayISO()&&editingWeightDate===selectedDate?"Save correction":"Log weight";
         weightEntryStatus.className="weightEntryStatus"+(saved?" saved":"");
-        weightEntryStatus.textContent=saved?(day.pendingCloudSync?"Saved on this device · waiting to sync":"✓ Weight logged and synced"):(meaningful(bw.value)?"Tap Log weight to save it.":"Enter today’s weight, then log it.");
+        weightEntryStatus.textContent=saved?(day.pendingCloudSync?"Saved on this device · waiting to sync":"✓ Weight logged and synced"):(meaningful(bw.value)?(editingWeightDate===selectedDate?"Adjust the value, then save the correction.":"Tap Log weight to save it."):"Enter a weight, then log it.");
+      }
+
+      function openWeightEditor(date){
+        editingWeightDate=String(date||"");
+        setSelectedDate(editingWeightDate);
+        document.querySelectorAll(".navBtn").forEach(item=>item.classList.toggle("active",item.dataset.panel==="todayPanel"));
+        document.querySelectorAll(".appPanel").forEach(panel=>panel.classList.toggle("active",panel.id==="todayPanel"));
+        renderWeightEntryState(store.days[selectedDate]);
+        window.scrollTo({top:0,behavior:"smooth"});
+        setTimeout(()=>{bw.focus();bw.select();},180);
+      }
+
+      function invalidateWeightDependentReviews(date){
+        const reviews=Array.isArray(settings.weeklyCheckins)?settings.weeklyCheckins:[];
+        settings.weeklyCheckins=reviews.filter(review=>!(String(review.trendStart||"")<=date&&String(review.endDate||"")>=date));
+        settings.weeklyCheckinMilestone=settings.weeklyCheckins.reduce((max,review)=>Math.max(max,Number(review.milestone)||0),0);
+        saveJSON(SETTINGS_KEY,settings);
       }
 
       function loadDayIntoEditor(date){
@@ -2281,16 +2300,13 @@
             </div>
             <div class="right">
               <span class="${workoutBadgeClass}">${w}</span>
-              <button type="button" data-load="${date}">Load</button>
+              <button type="button" data-edit-weight="${date}">${meaningful(day.bodyWeight)?"✏️ Edit weight":"＋ Add weight"}</button>
             </div>
           `;
           historyList.appendChild(item);
         });
 
-        historyList.querySelectorAll("button[data-load]").forEach(btn => btn.addEventListener("click", () => {
-          setSelectedDate(btn.getAttribute("data-load"));
-          window.scrollTo({ top:0, behavior:"smooth" });
-        }));
+        historyList.querySelectorAll("button[data-edit-weight]").forEach(btn=>btn.addEventListener("click",()=>openWeightEditor(btn.getAttribute("data-edit-weight"))));
       }
 
       function renderBaselineModal(){
@@ -2951,11 +2967,13 @@
       bw.addEventListener("input", () => { refreshGoalTexts();weightEntryStatus.className="weightEntryStatus";weightEntryStatus.textContent=meaningful(bw.value)?"Tap Log weight to save it.":"Enter today’s weight, then log it."; });
       saveWeightBtn.addEventListener("click",async()=>{
         const value=Number(bw.value);if(!Number.isFinite(value)||value<60||value>700){weightEntryStatus.className="weightEntryStatus failed";weightEntryStatus.textContent="Enter a valid weight between 60 and 700 lb.";return;}
+        const wasCorrection=editingWeightDate===selectedDate;
         const day=ensureDayRecord(selectedDate),now=new Date().toISOString();day.bodyWeight=String(Math.round(value*10)/10);day.weightSaved=true;day.weightSavedAt=now;day.pendingCloudSync=true;day.updatedAt=now;bw.value=day.bodyWeight;saveJSON(STORE_KEY,store);renderWeightEntryState(day);renderHistory();renderWeightAverage();renderDashboard();refreshGoalTexts();updateWorkoutOptions();
+        if(wasCorrection){invalidateWeightDependentReviews(selectedDate);editingWeightDate="";renderWeightEntryState(day);renderAdaptiveCoaching();}
         saveWeightBtn.disabled=true;const synced=await syncCurrentDayToCloud();saveWeightBtn.disabled=false;if(!synced){weightEntryStatus.className="weightEntryStatus failed";weightEntryStatus.textContent="Saved on this device. Cloud sync will retry when connected.";}
         if(value>=60&&value<=700)maybeShowWeeklyCheckin();
       });
-      editWeightBtn.addEventListener("click",()=>{const day=ensureDayRecord(selectedDate);day.weightSaved=false;saveJSON(STORE_KEY,store);renderWeightEntryState(day);bw.focus();bw.select();});
+      editWeightBtn.addEventListener("click",()=>openWeightEditor(selectedDate));
       function closeWeeklyCheckin(){weeklyCheckinBackdrop.classList.remove("show");weeklyCheckinBackdrop.setAttribute("aria-hidden","true");activeWeeklyCheckin=null;renderAdaptiveCoaching();}
       async function completeWeeklyReview(record){
         record.completedAt=new Date().toISOString();record.result=buildWeeklyResult(record);
