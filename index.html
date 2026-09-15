@@ -162,6 +162,10 @@
     .histItem .date{font-weight:950;font-size:13px}
     .histItem .meta{margin-top:4px;color:var(--muted);font-size:12px}
     .histItem .right{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+    .historyWeightEditor{width:100%;display:grid;gap:10px}
+    .historyWeightEditor label{font-size:12px;font-weight:900;color:var(--muted)}
+    .historyWeightEditor input{margin-top:6px;font-size:20px;font-weight:900}
+    .historyEditActions{display:grid;grid-template-columns:1fr 1fr;gap:8px}
     .badge{
       border:1px solid var(--line);border-radius:999px;padding:6px 10px;font-size:12px;
       background:#fff;color:#374151;white-space:nowrap
@@ -381,7 +385,7 @@
     </div>
 
     <div id="syncStatus" class="footerSync">● syncing</div>
-    <div class="appVersion">Fitness Tracker · v3.4.3</div>
+    <div class="appVersion">Fitness Tracker · v3.4.4</div>
   </div>
 
   <div class="savingPlan" id="savingPlan" aria-hidden="true"><div><div class="savingSpinner"></div><h2>Saving your plan…</h2><p>Connecting your goals across both apps.</p></div></div>
@@ -456,7 +460,7 @@
         </div>
         <div id="wizardControl" class="wizardControl"></div>
         <div id="goalPreview" class="small" style="margin-top:12px"></div>
-        <div class="wizardNav"><button id="wizardBackBtn" class="wizardBack" type="button">← Back</button><button id="wizardNextBtn" class="wizardNext" type="button">Next →</button></div><div class="wizardVersion">Fitness Tracker · v3.4.3</div>
+        <div class="wizardNav"><button id="wizardBackBtn" class="wizardBack" type="button">← Back</button><button id="wizardNextBtn" class="wizardNext" type="button">Next →</button></div><div class="wizardVersion">Fitness Tracker · v3.4.4</div>
         <button id="saveGoalsBtn" class="primary" type="button" style="margin-top:12px">Save shared goals</button>
       </div>
       </div>
@@ -1026,6 +1030,12 @@
         return `${value>0?"-":"+"}${Math.abs(value).toFixed(2)}% / week`;
       }
 
+      function weightRateText(rate,referenceWeight){
+        const pounds=(Number(rate)||0)*(Number(referenceWeight)||0)/100;
+        if(Math.abs(pounds)<.05)return "roughly weight-stable";
+        return `${Math.abs(pounds).toFixed(1)} lb/week ${pounds>0?"lost":"gained"}`;
+      }
+
       function loggedWorkoutsInWeek(endDate){
         let count=0;
         for(let i=0;i<7;i++){const day=store.days[addDaysISO(endDate,-i)];if(day?.workoutCompleted||isMeaningfulWorkoutLog(day?.workoutLog))count++;}
@@ -1212,7 +1222,8 @@
         if(!goal){progressCheck.innerHTML="<strong>📈 Progress check</strong><div class='small'>Set your goals first.</div>";eveningEstimate.innerHTML="<strong>🌙 Intake estimate</strong><div class='small'>Unlocks with weekly reviews.</div>";return;}
         if(!latest){progressCheck.innerHTML="<strong>📈 Building your trend</strong><div class='small'>Your first guided review appears after seven weigh-ins.</div>";eveningEstimate.innerHTML="<strong>🌙 Intake estimate</strong><div class='small'>Waiting for weight, activity, workout, and plan context.</div>";return;}
         const verdict=weeklyCheckinVerdict(Number(latest.actualRate),Number(latest.targetRate));
-        progressCheck.innerHTML=`<strong>${verdict.icon} ${verdict.title}</strong><div class="small" style="margin-top:6px">Latest review: ${rateText(Number(latest.actualRate))} · Target ${rateText(Number(latest.targetRate))}</div>`;
+        const referenceWeight=Number(latest.referenceWeight)||Number(goal.current_weight_lb)||0;
+        progressCheck.innerHTML=`<strong>${verdict.icon} ${verdict.title}</strong><div class="small" style="margin-top:6px">Actual: ${weightRateText(Number(latest.actualRate),referenceWeight)} <span style="opacity:.7">(${rateText(Number(latest.actualRate))})</span><br>Target: ${weightRateText(Number(latest.targetRate),referenceWeight)} <span style="opacity:.7">(${rateText(Number(latest.targetRate))})</span></div>`;
         const context=weeklyContext(latest), gap=Number(latest.estimatedDailyGap)||0;
         if(!context.stepsOnPlan||!context.workoutsOnPlan){eveningEstimate.innerHTML="<strong>🌙 Not enough context to isolate macros</strong><div class='small' style='margin-top:6px'>Activity or workout adherence differed from plan, so the app kept your targets unchanged.</div>";return;}
         const direction=gap>0?"above":gap<0?"below":"close to";
@@ -2255,12 +2266,14 @@
 
         if(days.length >= 7){
           let workoutCount = 0;
-          for(let i=0;i<30;i++){
+          for(let i=0;i<28;i++){
             const d = addDaysISO(selectedDate, -i);
             const day = store.days[d];
-            if(day && isMeaningfulWorkoutLog(day.workoutLog)) workoutCount++;
+            if(day && (day.workoutCompleted||isMeaningfulWorkoutLog(day.workoutLog))) workoutCount++;
           }
-          dashboardGrid.insertAdjacentHTML("beforeend", dashboardCard("Workout adherence", `${workoutCount} / 30 days`, "Only shown once at least 7 meaningful logged days exist."));
+          const weeklyWorkoutGoal=Math.max(0,Number(settings.sharedGoal?.planned_strength_workouts_week)||0);
+          const plannedWorkoutCount=weeklyWorkoutGoal*4;
+          dashboardGrid.insertAdjacentHTML("beforeend", dashboardCard("Workout adherence", plannedWorkoutCount?`${workoutCount} of ${plannedWorkoutCount} planned workouts`:`${workoutCount} workouts completed`, plannedWorkoutCount?`Last 4 weeks · your goal is ${weeklyWorkoutGoal} workout${weeklyWorkoutGoal===1?"":"s"} per week.`:"Last 4 weeks."));
         }
 
         const ex = firstProgressExercise();
@@ -2271,6 +2284,33 @@
         if(!dashboardGrid.children.length){
           dashboardGrid.insertAdjacentHTML("beforeend", dashboardCard("Not enough data yet", "Keep logging", "Dashboard only shows metrics when there’s enough data to be worth trusting."));
         }
+      }
+
+      function beginInlineHistoryWeightEdit(date,item){
+        const day=normalizedDay(store.days[date]);
+        item.innerHTML=`<div class="historyWeightEditor"><label>${prettyDate(date)} weight (lb)<input data-history-weight-input type="number" inputmode="decimal" min="60" max="700" step="0.1" value="${meaningful(day.bodyWeight)?Number(day.bodyWeight):""}"></label><div class="weightEntryStatus" data-history-edit-status>Correcting this value will refresh all weight-based progress.</div><div class="historyEditActions"><button type="button" data-history-cancel>Cancel</button><button class="primary" type="button" data-history-save>Save correction</button></div></div>`;
+        const input=item.querySelector("[data-history-weight-input]"),save=item.querySelector("[data-history-save]"),status=item.querySelector("[data-history-edit-status]");
+        item.querySelector("[data-history-cancel]").onclick=renderHistory;
+        save.onclick=async()=>{
+          const value=Number(input.value);
+          if(!Number.isFinite(value)||value<60||value>700){status.className="weightEntryStatus failed";status.textContent="Enter a valid weight between 60 and 700 lb.";return;}
+          const now=new Date().toISOString(),record=ensureDayRecord(date);
+          record.bodyWeight=String(Math.round(value*10)/10);record.weightSaved=true;record.weightSavedAt=now;record.pendingCloudSync=true;record.updatedAt=now;
+          saveJSON(STORE_KEY,store);invalidateWeightDependentReviews(date);renderWeightAverage();renderDashboard();renderAdaptiveCoaching();
+          save.disabled=true;input.disabled=true;status.textContent="Saving correction…";setSyncStatus("● syncing");
+          const hasActualWorkout=!!record.workoutCompleted||isMeaningfulWorkoutLog(record.workoutLog);
+          try{
+            const res=await cloudPost({action:"saveSnapshot",date,updatedAt:record.updatedAt,bodyWeight:record.bodyWeight,workoutDay:hasActualWorkout?record.workout:"",workoutType:hasActualWorkout?(record.workoutType||record.workout||""):"",baselineCompleted:!!record.baselineCompleted,baselineCompletedDate:record.baselineCompletedDate||"",baselineData:record.baselineData||{},source:"github_app",exercises:extractExercisesForDate(date)});
+            if(!res?.ok)throw new Error("Save failed");
+            const verify=await cloudGet("getRange",{start:date,end:date,_:Date.now()});
+            const match=(verify?.days||[]).find(row=>String(row.date||"").slice(0,10)===date&&Number(row.body_weight_lb)===Number(record.bodyWeight));
+            if(!match)throw new Error("Save could not be verified");
+            record.pendingCloudSync=false;saveJSON(STORE_KEY,store);setSyncStatus("● synced");renderHistory();
+          }catch{
+            status.className="weightEntryStatus failed";status.textContent="Saved on this device. Tap Save correction to retry cloud sync.";save.disabled=false;input.disabled=false;setSyncStatus("● sync failed");
+          }
+        };
+        setTimeout(()=>{input.focus();input.select();},60);
       }
 
       function renderHistory(){
@@ -2306,7 +2346,7 @@
           historyList.appendChild(item);
         });
 
-        historyList.querySelectorAll("button[data-edit-weight]").forEach(btn=>btn.addEventListener("click",()=>openWeightEditor(btn.getAttribute("data-edit-weight"))));
+        historyList.querySelectorAll("button[data-edit-weight]").forEach(btn=>btn.addEventListener("click",()=>beginInlineHistoryWeightEdit(btn.getAttribute("data-edit-weight"),btn.closest(".histItem"))));
       }
 
       function renderBaselineModal(){
