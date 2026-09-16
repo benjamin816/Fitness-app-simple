@@ -385,7 +385,7 @@
     </div>
 
     <div id="syncStatus" class="footerSync">● syncing</div>
-    <div class="appVersion">Fitness Tracker · v3.4.4</div>
+    <div class="appVersion">Fitness Tracker · v3.4.5</div>
   </div>
 
   <div class="savingPlan" id="savingPlan" aria-hidden="true"><div><div class="savingSpinner"></div><h2>Saving your plan…</h2><p>Connecting your goals across both apps.</p></div></div>
@@ -460,7 +460,7 @@
         </div>
         <div id="wizardControl" class="wizardControl"></div>
         <div id="goalPreview" class="small" style="margin-top:12px"></div>
-        <div class="wizardNav"><button id="wizardBackBtn" class="wizardBack" type="button">← Back</button><button id="wizardNextBtn" class="wizardNext" type="button">Next →</button></div><div class="wizardVersion">Fitness Tracker · v3.4.4</div>
+        <div class="wizardNav"><button id="wizardBackBtn" class="wizardBack" type="button">← Back</button><button id="wizardNextBtn" class="wizardNext" type="button">Next →</button></div><div class="wizardVersion">Fitness Tracker · v3.4.5</div>
         <button id="saveGoalsBtn" class="primary" type="button" style="margin-top:12px">Save shared goals</button>
       </div>
       </div>
@@ -1223,7 +1223,7 @@
         if(!latest){progressCheck.innerHTML="<strong>📈 Building your trend</strong><div class='small'>Your first guided review appears after seven weigh-ins.</div>";eveningEstimate.innerHTML="<strong>🌙 Intake estimate</strong><div class='small'>Waiting for weight, activity, workout, and plan context.</div>";return;}
         const verdict=weeklyCheckinVerdict(Number(latest.actualRate),Number(latest.targetRate));
         const referenceWeight=Number(latest.referenceWeight)||Number(goal.current_weight_lb)||0;
-        progressCheck.innerHTML=`<strong>${verdict.icon} ${verdict.title}</strong><div class="small" style="margin-top:6px">Actual: ${weightRateText(Number(latest.actualRate),referenceWeight)} <span style="opacity:.7">(${rateText(Number(latest.actualRate))})</span><br>Target: ${weightRateText(Number(latest.targetRate),referenceWeight)} <span style="opacity:.7">(${rateText(Number(latest.targetRate))})</span></div>`;
+        progressCheck.innerHTML=`<strong>${verdict.icon} ${verdict.title}</strong><div class="small" style="margin-top:6px">Your recent pace: ${weightRateText(Number(latest.actualRate),referenceWeight)}<br>Your target pace: ${weightRateText(Number(latest.targetRate),referenceWeight)}</div>`;
         const context=weeklyContext(latest), gap=Number(latest.estimatedDailyGap)||0;
         if(!context.stepsOnPlan||!context.workoutsOnPlan){eveningEstimate.innerHTML="<strong>🌙 Not enough context to isolate macros</strong><div class='small' style='margin-top:6px'>Activity or workout adherence differed from plan, so the app kept your targets unchanged.</div>";return;}
         const direction=gap>0?"above":gap<0?"below":"close to";
@@ -2273,7 +2273,8 @@
           }
           const weeklyWorkoutGoal=Math.max(0,Number(settings.sharedGoal?.planned_strength_workouts_week)||0);
           const plannedWorkoutCount=weeklyWorkoutGoal*4;
-          dashboardGrid.insertAdjacentHTML("beforeend", dashboardCard("Workout adherence", plannedWorkoutCount?`${workoutCount} of ${plannedWorkoutCount} planned workouts`:`${workoutCount} workouts completed`, plannedWorkoutCount?`Last 4 weeks · your goal is ${weeklyWorkoutGoal} workout${weeklyWorkoutGoal===1?"":"s"} per week.`:"Last 4 weeks."));
+          const averagePerWeek=(workoutCount/4).toFixed(workoutCount%4===0?0:1);
+          dashboardGrid.insertAdjacentHTML("beforeend", dashboardCard("Weekly workout pace", weeklyWorkoutGoal?`${averagePerWeek} of ${weeklyWorkoutGoal} per week`:`${workoutCount} workouts completed`, weeklyWorkoutGoal?`Based on the last 4 weeks: ${workoutCount} completed · ${plannedWorkoutCount} planned. Rest days are expected.`:"Based on the last 4 weeks."));
         }
 
         const ex = firstProgressExercise();
