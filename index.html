@@ -385,7 +385,7 @@
     </div>
 
     <div id="syncStatus" class="footerSync">● syncing</div>
-    <div class="appVersion">Fitness Tracker · v3.4.5</div>
+    <div class="appVersion">Fitness Tracker · v3.5.0</div>
   </div>
 
   <div class="savingPlan" id="savingPlan" aria-hidden="true"><div><div class="savingSpinner"></div><h2>Saving your plan…</h2><p>Connecting your goals across both apps.</p></div></div>
@@ -460,12 +460,13 @@
         </div>
         <div id="wizardControl" class="wizardControl"></div>
         <div id="goalPreview" class="small" style="margin-top:12px"></div>
-        <div class="wizardNav"><button id="wizardBackBtn" class="wizardBack" type="button">← Back</button><button id="wizardNextBtn" class="wizardNext" type="button">Next →</button></div><div class="wizardVersion">Fitness Tracker · v3.4.5</div>
+        <div class="wizardNav"><button id="wizardBackBtn" class="wizardBack" type="button">← Back</button><button id="wizardNextBtn" class="wizardNext" type="button">Next →</button></div><div class="wizardVersion">Fitness Tracker · v3.5.0</div>
         <button id="saveGoalsBtn" class="primary" type="button" style="margin-top:12px">Save shared goals</button>
       </div>
       </div>
 
       <div class="settingsExtras">
+      <div class="baselineBox"><strong>Workout program</strong><div class="small">Adjust your exercise setup, progression levels, accessories, and available equipment increments.</div><button id="editWorkoutProgramBtn" type="button" style="margin-top:10px">Review workout setup</button></div>
       <div hidden><input id="setStepsGoal"><input id="setCalsGoal"><input id="setProteinPerLb" value="1"><span id="proteinPerLbHint"></span><span id="derivedProteinGoal"></span><input id="setIncrement"><input id="setTimeIncrement"></div>
 
       <div class="hr"></div>
@@ -505,6 +506,7 @@
     </div>
   </div>
 
+  <script src="workout-program.js?v=3.5.0"></script>
   <script>
     (() => {
       const GAS_URL = "https://script.google.com/macros/s/AKfycbxuV80tGBBeKjsu9a9axHQltFCgLkbwG99SKlmsAcZ8IOWtWhFfFUnMmhj49Kttu6j-/exec";
@@ -521,7 +523,8 @@
         sharedGoal: null,
         weeklyCheckinMilestone: 0,
         lastWaistPromptDate: "",
-        weeklyCheckins: []
+        weeklyCheckins: [],
+        workoutProgram: null
       };
 
       ["ben_tracker_v11_store","ben_tracker_v11_settings","ben_tracker_v11_timers","ben_tracker_v11_cloud"].forEach(key=>localStorage.removeItem(key));
@@ -557,6 +560,7 @@
       settings.sharedGoal = settings.sharedGoal && typeof settings.sharedGoal === "object" ? settings.sharedGoal : null;
       settings.weeklyCheckinMilestone = Math.max(0, Number(settings.weeklyCheckinMilestone) || 0);
       settings.weeklyCheckins = Array.isArray(settings.weeklyCheckins) ? settings.weeklyCheckins : [];
+      settings.workoutProgram = {...WorkoutProgram.defaults(),...(settings.workoutProgram||{})};
 
       (function ensureDumbbellBicepCurl(){
         if(!Array.isArray(WORKOUTS?.C)) return;
@@ -1239,6 +1243,7 @@
       function getLog(raw){
         if(!raw) return { type:"", value:"", fail:false, easy:false, setWeights:[], setReps:[], goalAtTime:"" };
         return {
+          ...raw,
           type: raw.type || "",
           value: raw.value ?? "",
           fail: !!raw.fail,
@@ -1253,6 +1258,7 @@
         if(!logObj || typeof logObj !== "object") return false;
         return Object.values(logObj).some(raw => {
           const log = getLog(raw);
+          if(log.exerciseId)return (log.setReps||[]).some(meaningful)||(log.partBReps||[]).some(meaningful);
           return meaningful(log.value) || (log.setWeights || []).some(meaningful) || (log.setReps || []).some(meaningful) || log.fail || log.easy;
         });
       }
@@ -1323,6 +1329,8 @@
       }
 
       function resetModeActive(){
+        // The new program establishes its own exercise baselines during the first workout.
+        if(settings.workoutProgram?.version>=1) return false;
         if(!settings.freshStartDate) return false;
         if(selectedDate !== settings.freshStartDate) return false;
         return !baselineTestCompleted(selectedDate);
@@ -1341,7 +1349,7 @@
       }
 
       function workoutDescription(which){
-        if(which === "FULL_BODY") return "Full body · same exercises, same order · about 3 nonconsecutive days per week.";
+        if(which === "FULL_BODY") return "Guided full body · same exercise order · 2–3 nonconsecutive days per week.";
         if(which === "BASELINE") return "Calibration workout: choose conservative working loads with about 2–3 clean reps in reserve.";
         return "Pick a workout day to track that day's plan.";
       }
@@ -1358,16 +1366,8 @@
 
       function workoutsForDay(day){
         if(day==="FULL_BODY"){
-          const frequency=Number(settings.sharedGoal?.planned_strength_workouts_week||goalWorkoutDays?.value||3);
-          const sets=frequency>=3?2:3;
-          return [
-            {name:"Goblet Squat",meta:`${sets} sets · 8–12 reps`,desc:"Performed alone. Stop with about 1–3 clean reps in reserve.",sets,low:8,high:12,unit:"reps",increment:5,restSec:180,group:"solo"},
-            {name:"Low-Incline Dumbbell Press",meta:`${sets} sets · 6–10 reps`,desc:"Pair with Cable Row. Alternate movements so each muscle receives about 2–5 minutes of effective recovery.",sets,low:6,high:10,unit:"reps",increment:5,restSec:45,group:"pair-a"},
-            {name:"Cable Row",meta:`${sets} sets · 8–12 reps`,desc:"Pair with the press. Use a controlled squeeze and avoid turning the set into momentum.",sets,low:8,high:12,unit:"reps",increment:5,restSec:120,group:"pair-a"},
-            {name:"Romanian Deadlift",meta:`${sets} sets · 8–12 reps`,desc:"Performed alone with about three minutes before repeating. Keep the hinge controlled and submaximal.",sets,low:8,high:12,unit:"reps",increment:10,restSec:180,group:"solo"},
-            {name:"Assisted Neutral-Grip Pull-up",meta:`${sets} sets · 8–12 reps`,desc:"Graduation path: inverted row → 3×15 → assisted neutral-grip pull-up → about 10 unassisted reps → overhand pull-up 3×5–8 → add weight after more than 8 clean reps. A neutral-grip pulldown is only a practical substitute.",sets,low:8,high:12,unit:"reps",increment:5,restSec:45,group:"pair-b"},
-            {name:"Dumbbell Lateral Raise",meta:`${sets} sets · 12–20 reps`,desc:"Pair with the vertical pull. The final set may occasionally approach 0–1 reps in reserve.",sets,low:12,high:20,unit:"reps",increment:2.5,restSec:120,group:"pair-b"}
-          ];
+          const bodyWeight=Number(store.days[selectedDate]?.bodyWeight||settings.sharedGoal?.current_weight_lb||0);
+          return WorkoutProgram.plan(settings.workoutProgram,bodyWeight);
         }
         const fullBodyNames = ["Goblet Squat","Dumbbell Bench Press","Dumbbell Pullover","Dumbbell Romanian Deadlift","Dumbbell Rear Delt Fly","Dumbbell Overhead Press","Reverse Crunch Hold"];
         const all = ["A","B","C"].flatMap(key => Array.isArray(WORKOUTS?.[key]) ? WORKOUTS[key] : []);
@@ -1535,7 +1535,7 @@
         bw.disabled=saved;bw.classList.toggle("weightLocked",saved);saveWeightBtn.hidden=saved;editWeightBtn.hidden=!saved;
         saveWeightBtn.textContent=selectedDate<todayISO()&&editingWeightDate===selectedDate?"Save correction":"Log weight";
         weightEntryStatus.className="weightEntryStatus"+(saved?" saved":"");
-        weightEntryStatus.textContent=saved?(day.pendingCloudSync?"Saved on this device · waiting to sync":"✓ Weight logged and synced"):(meaningful(bw.value)?(editingWeightDate===selectedDate?"Adjust the value, then save the correction.":"Tap Log weight to save it."):"Enter a weight, then log it.");
+        weightEntryStatus.textContent=saved?(day.pendingCloudSync?"✓ Daily weight logged! Syncing in the background.":"✓ Daily weight logged!"):(meaningful(bw.value)?(editingWeightDate===selectedDate?"Adjust the value, then save the correction.":"Tap Log weight to save it."):"Enter a weight, then log it.");
       }
 
       function openWeightEditor(date){
@@ -1796,6 +1796,8 @@
         store.days[selectedDate].workoutType = workoutType;
         store.days[selectedDate].workoutLog = store.days[selectedDate].workoutLog || {};
         store.days[selectedDate].workoutLog[key] = payload;
+        store.days[selectedDate].pendingCloudSync = true;
+        store.days[selectedDate].updatedAt = new Date().toISOString();
         if(workoutType === "BASELINE") baselineTestCompleted(selectedDate);
         saveJSON(STORE_KEY, store);
         renderHistory();
@@ -1864,6 +1866,14 @@
         const log = day?.workoutLog || {};
         const exList = workoutDay === "BASELINE" ? baselineExercises() : workoutsForDay(workoutDay);
         const rows = [];
+
+        if(workoutDay==="FULL_BODY"){
+          Object.entries(log).filter(([key,raw])=>key.startsWith("FULL_BODY__")&&isMeaningfulWorkoutLog({[key]:raw})).forEach(([key,raw],idx)=>{
+            const item=getLog(raw),ex=exList.find(x=>x.id===item.exerciseId)||{};
+            rows.push({workoutDay,exerciseKey:key,exerciseName:item.exerciseName||ex.name||key.split("__")[1],exerciseOrder:Number(item.exerciseOrder)||idx+1,sets:Number(item.targetSets)||ex.sets||3,repLow:Number(item.repMin)||ex.low||0,repHigh:Number(item.repMax)||ex.high||0,unit:"lb",goalValue:item.goalAtTime||"",loggedValue:summarizeExerciseLog(ex,item),lastValue:"",hitFailure:item.fail,tooEasy:item.easy,stallFlag:false,rawDetails:item});
+          });
+          return rows;
+        }
 
         exList.forEach((ex, idx) => {
           const key = exerciseKey(workoutDay === "BASELINE" ? "BASE" : workoutDay, ex);
@@ -1945,7 +1955,7 @@
       }
 
       async function refreshFoodCaptures(date=selectedDate){
-        try{const res=await cloudGet("getFoodCaptures",{date});if(res?.ok&&Array.isArray(res.rows)){foodCaptures[date]=res.rows;saveFoodCaptureCache();renderDailyIntakeCard();}}
+        try{const res=await cloudGet("getFoodCaptures",{date});if(res?.ok&&Array.isArray(res.rows)){const ids=new Set(res.rows.map(x=>x.capture_id));const unsynced=capturesForDate(date).filter(x=>!ids.has(x.capture_id));foodCaptures[date]=[...res.rows,...unsynced];saveFoodCaptureCache();renderDailyIntakeCard();}}
         catch{renderDailyIntakeCard();}
       }
 
@@ -1993,12 +2003,13 @@
         try{recognition.start();}catch{activeSpeechRecognition=null;renderDailyIntakeCard();}
       }
 
-      async function syncCurrentDayToCloud(){
+      async function syncCurrentDayToCloud(dateOverride){
         try{
-          const day = normalizedDay(collectEditorData());
+          const syncDate=dateOverride||selectedDate;
+          const day = normalizedDay(dateOverride?store.days[syncDate]:collectEditorData());
           if((day.workoutType || day.workout) === "BASELINE"){
-            day.baselineCompleted = baselineTestCompleted(selectedDate);
-            day.baselineCompletedDate = day.baselineCompleted ? selectedDate : "";
+            day.baselineCompleted = baselineTestCompleted(syncDate);
+            day.baselineCompletedDate = day.baselineCompleted ? syncDate : "";
           }
           if(!isMeaningfulDay(day)){
             setSyncStatus("● synced");
@@ -2007,7 +2018,7 @@
           const hasActualWorkout=!!day.workoutCompleted||isMeaningfulWorkoutLog(day.workoutLog);
           const payload = {
             action: "saveSnapshot",
-            date: selectedDate,
+            date: syncDate,
             updatedAt: day.updatedAt,
             bodyWeight: day.bodyWeight,
             workoutDay: hasActualWorkout ? day.workout : "",
@@ -2016,7 +2027,7 @@
             baselineCompletedDate: day.baselineCompletedDate || "",
             baselineData: day.baselineData || {},
             source: "github_app",
-            exercises: extractExercisesForDate(selectedDate)
+            exercises: extractExercisesForDate(syncDate)
           };
           setSyncStatus("● syncing");
           const res = await cloudPost(payload);
@@ -2025,15 +2036,15 @@
             // sheet date is later unreadable because Sheets coerced it to a
             // Date value. Confirm the exact weight can be read back before
             // clearing the durable local outbox flag.
-            const verify=await cloudGet("getRange",{start:selectedDate,end:selectedDate,_:Date.now()});
-            const matching=(verify?.days||[]).filter(row=>String(row.date||"").slice(0,10)===selectedDate);
+            const verify=await cloudGet("getRange",{start:syncDate,end:syncDate,_:Date.now()});
+            const matching=(verify?.days||[]).filter(row=>String(row.date||"").slice(0,10)===syncDate);
             const latest=matching.sort((a,b)=>String(b.updated_at||"").localeCompare(String(a.updated_at||"")))[0];
             const weightMatches=!meaningful(day.bodyWeight)||(Number(latest?.body_weight_lb)===Number(day.bodyWeight));
             if(!latest||!weightMatches){
               setSyncStatus("● sync failed");
               return false;
             }
-            const savedDay=ensureDayRecord(selectedDate);savedDay.pendingCloudSync=false;saveJSON(STORE_KEY,store);renderWeightEntryState(savedDay);
+            const savedDay=ensureDayRecord(syncDate);savedDay.pendingCloudSync=false;saveJSON(STORE_KEY,store);if(selectedDate===syncDate)renderWeightEntryState(savedDay);
             cloudState.lastSyncAt = new Date().toISOString();
             saveJSON(CLOUD_KEY, cloudState);
             setSyncStatus("● synced");
@@ -2127,8 +2138,10 @@
           let parsed = null;
           try { parsed = row.raw_json ? JSON.parse(row.raw_json) : null; } catch {}
           const details = parsed?.rawDetails || null;
+          if(details?.programSetup?.setupComplete&&!settings.workoutProgram?.setupComplete){settings.workoutProgram={...WorkoutProgram.defaults(),...details.programSetup,pendingCloudSync:false};saveJSON(SETTINGS_KEY,settings);}
 
           store.days[d].workoutLog[row.exercise_key] = details ? {
+            ...details,
             type: row.unit === "sec" ? "time" : "weight",
             value: details.value ?? "",
             fail: !!details.fail,
@@ -2162,6 +2175,10 @@
         Object.keys(pending).forEach(d=>{store.days[d]=pending[d];});
       }
 
+      async function flushPendingDailySync(){
+        for(const date of Object.keys(store.days||{}).filter(d=>store.days[d]?.pendingCloudSync).sort())await syncCurrentDayToCloud(date);
+      }
+
       async function initializeCloudSync(){
         setSyncStatus("● syncing");
         const start = addDaysISO(todayISO(), -180);
@@ -2184,6 +2201,7 @@
             renderDashboard();
             renderAdaptiveCoaching();
             updateWorkoutOptions();
+            void flushPendingDailySync();
           }else{
             renderHistory();
           }
@@ -2414,6 +2432,11 @@
       function openPlanModal(){
         const dayName = workoutSelect.value;
         if(freshStartNeedsBodyweight()) return;
+        if(dayName==='FULL_BODY'&&!settings.workoutProgram.setupComplete){renderWorkoutSetup();return;}
+        if(dayName==='FULL_BODY'&&settings.workoutProgram.accessorySelectedAt&&settings.workoutProgram.accessorySelectedAt<=addDaysISO(todayISO(),-84)){
+          if(confirm('You have trained these accessory priorities for 12 weeks. Reassess them now? Choose Cancel to keep them.')){renderWorkoutSetup();return;}
+          settings.workoutProgram.accessorySelectedAt=todayISO();saveWorkoutProgramLocal();
+        }
         if(dayName === "BASELINE"){
           renderBaselineModal();
           return;
@@ -2652,7 +2675,92 @@
         openModal(planBackdrop);
       }
 
+      function saveWorkoutProgramLocal(){settings.workoutProgram.updatedAt=new Date().toISOString();settings.workoutProgram.pendingCloudSync=true;saveJSON(SETTINGS_KEY,settings);syncWorkoutProgram();}
+      async function syncWorkoutProgram(){
+        const local=settings.workoutProgram;if(!local?.pendingCloudSync)return;
+        try{const res=await cloudPost({action:'saveWorkoutProgram',program:local,expectedProgramVersion:Number(local.program_version)||0});
+          if(res?.ok){settings.workoutProgram={...WorkoutProgram.defaults(),...res.program,pendingCloudSync:false};saveJSON(SETTINGS_KEY,settings);}
+          else if(res?.error==='Version conflict'&&res.current){
+            if(confirm('Workout setup changed on another device. Keep this device’s choices and replace the newer cloud setup? Cancel to use the cloud setup.')){settings.workoutProgram.program_version=Number(res.current.program_version)||0;saveJSON(SETTINGS_KEY,settings);await syncWorkoutProgram();}
+            else{settings.workoutProgram={...WorkoutProgram.defaults(),...res.current,pendingCloudSync:false};saveJSON(SETTINGS_KEY,settings);}
+          }
+        }catch{}
+      }
+      async function loadWorkoutProgram(){
+        try{const res=await cloudGet('getWorkoutProgram');if(!res?.ok)return;
+          const remote=res.program,local=settings.workoutProgram;
+          if(local?.pendingCloudSync){await syncWorkoutProgram();return;}
+          if(remote&&Number(remote.program_version)>Number(local?.program_version||0)){settings.workoutProgram={...WorkoutProgram.defaults(),...remote,pendingCloudSync:false};saveJSON(SETTINGS_KEY,settings);}
+        }catch{}
+      }
+      function workoutChoice(label,value,current){return `<option value="${value}" ${current===value?'selected':''}>${label}</option>`;}
+      function renderWorkoutSetup(){
+        const s=settings.workoutProgram;
+        planTitle.textContent='Set up your workout';planMeta.textContent='A few choices that change your program';
+        planRows.innerHTML=`<div class="baselineBox"><div class="goalForm">
+          <label>Find your incline · phone at sternum<select id="wpBench">${workoutChoice('Choose one','0',String(s.benchNotches||0))}${workoutChoice('Sternum mostly vertical · bench 1 notch','1',String(s.benchNotches))}${workoutChoice('Sternum angles backward · bench 2 notches','2',String(s.benchNotches))}</select></label>
+          <label>Squat stance that feels natural<select id="wpSquatStance">${workoutChoice('Choose one','',s.squatStance)}${workoutChoice('Slightly wide, toes out','slightly wide, toes out',s.squatStance)}${workoutChoice('Hip width, toes forward','hip width, toes forward',s.squatStance)}${workoutChoice('Wide, toes farther out','wide, toes farther out',s.squatStance)}</select></label>
+          <label>Squat emphasis<select id="wpSquatEmphasis">${workoutChoice('Balanced','balanced',s.squatEmphasis)}${workoutChoice('Quads · heel-elevated','quads',s.squatEmphasis)}${workoutChoice('Glutes · box/bench','glutes',s.squatEmphasis)}</select></label>
+          <label>Strict unassisted pull-ups now<input id="wpPullups" type="number" min="0" step="1" value="${s.pullupBaseline??''}" placeholder="0"></label>
+          <label>RDL stance · hop and stick the landing<select id="wpRdlStance">${workoutChoice('Choose one','',s.rdlStance)}${workoutChoice('Hip width, toes forward','hip width, toes forward',s.rdlStance)}${workoutChoice('Slightly wider, toes out','slightly wider, toes out',s.rdlStance)}</select></label>
+          <label>RDL emphasis<select id="wpRdlEmphasis">${workoutChoice('Hamstrings','hamstring',s.rdlEmphasis)}${workoutChoice('Glutes','glute',s.rdlEmphasis)}</select></label>
+          <label>Your top 1–2 priorities<select id="wpPriority1">${Object.entries(WorkoutProgram.priorities).map(([k,v])=>workoutChoice(v.name,k,s.accessories?.[0])).join('')}</select></label>
+          <label>Second priority (optional)<select id="wpPriority2">${workoutChoice('None','',s.accessories?.[1]||'')}${Object.entries(WorkoutProgram.priorities).map(([k,v])=>workoutChoice(v.name,k,s.accessories?.[1])).join('')}</select></label>
+          <label>Dumbbell increment (lb)<input id="wpDbIncrement" type="number" min="0.5" step="0.5" value="${s.increments?.dumbbell??''}" placeholder="Ask once"></label>
+          <label>Barbell increment (lb)<input id="wpBarIncrement" type="number" min="0.5" step="0.5" value="${s.increments?.barbell??''}" placeholder="Ask once"></label>
+          <label>Cable-stack increment (lb)<input id="wpCableIncrement" type="number" min="0.5" step="0.5" value="${s.increments?.cable??''}" placeholder="Ask once"></label>
+          <label>Assistance increment (lb)<input id="wpAssistIncrement" type="number" min="0.5" step="0.5" value="${s.increments?.assistance??''}" placeholder="Ask once"></label>
+        </div><div class="small">Starting body weight: ${Number(store.days[selectedDate]?.bodyWeight||settings.sharedGoal?.current_weight_lb||0)||'Add a weigh-in when available'} lb. Dead Bug is the recommended beginner accessory.</div><button id="wpSave" class="primary" type="button" style="margin-top:12px;width:100%">Save workout setup</button></div>`;
+        $('wpSave').onclick=()=>{
+          const first=$('wpPriority1').value,second=$('wpPriority2').value;
+          if(!$('wpBench').value||!$('wpSquatStance').value||!$('wpRdlStance').value||$('wpPullups').value===''||first===second){alert('Choose your incline, stances, pull-up baseline, and distinct priorities.');return;}
+          const baseline=Number($('wpPullups').value);
+          Object.assign(s,{setupComplete:true,benchNotches:Number($('wpBench').value),squatStance:$('wpSquatStance').value,squatEmphasis:$('wpSquatEmphasis').value,pullupBaseline:baseline,pullupLevel:baseline>0?'assisted':'inverted',rdlStance:$('wpRdlStance').value,rdlEmphasis:$('wpRdlEmphasis').value,accessories:[first,second].filter(Boolean),accessorySelectedAt:s.accessorySelectedAt||todayISO(),increments:{dumbbell:Number($('wpDbIncrement').value)||null,barbell:Number($('wpBarIncrement').value)||null,cable:Number($('wpCableIncrement').value)||null,assistance:Number($('wpAssistIncrement').value)||null}});
+          saveWorkoutProgramLocal();activeWorkoutIndex=0;renderEthierWorkout();
+        };
+        openModal(planBackdrop);
+      }
+      function previousEthierLog(ex){
+        const key=exerciseKey('FULL_BODY',ex);
+        for(const date of Object.keys(store.days).filter(d=>d<selectedDate).sort().reverse()){
+          const raw=store.days[date]?.workoutLog?.[key];if(raw&&isMeaningfulWorkoutLog({[key]:raw}))return getLog(raw);
+        }
+        return null;
+      }
+      function ethierNextLoad(ex,previous){
+        if(!previous)return '';
+        const inc=Number(settings.workoutProgram.increments?.[ex.equipment]);
+        const result=WorkoutProgram.progression(ex,previous,null,inc);
+        return Number(result.nextWeight)||Number(previous.value)||'';
+      }
+      function renderEthierWorkout(){
+        const exercises=workoutsForDay('FULL_BODY'),ex=exercises[activeWorkoutIndex],key=exerciseKey('FULL_BODY',ex),today=getLog(store.days[selectedDate]?.workoutLog?.[key]),previous=previousEthierLog(ex),goal=ethierNextLoad(ex,previous),inc=Number(settings.workoutProgram.increments?.[ex.equipment]);
+        planTitle.textContent=ex.name;planMeta.textContent=`Exercise ${activeWorkoutIndex+1} of ${exercises.length} · ${prettyDate(selectedDate)}`;
+        const previousText=previous?`${previous.setWeights?.[0]||previous.value||'bodyweight'} lb · ${(previous.setReps||[]).filter(meaningful).join(' / ')||'no reps'}`:'First session';
+        const assist=ex.equipment==='assistance';
+        const mediaHtml=ex.img?renderExerciseMedia(ex.img,ex.alt):`<div class="exercisePlaceholder">Movement demo unavailable · verify form with a coach</div>`;
+        const second=ex.superset?`<div class="small" style="margin:10px 0">Then: ${ex.partB}</div>${ex.partBImg?renderExerciseMedia(ex.partBImg,ex.partB):''}`:'';
+        planRows.innerHTML=`<div class="exerciseCard">${mediaHtml}<div class="exerciseName">${ex.name}</div><div class="exerciseMeta">${ex.meta} · ${ex.variation.replaceAll('_',' ')}</div><div class="small">${ex.setup||''}</div><div class="goalMeta"><div><strong>Previous:</strong> ${previousText}</div><div><strong>Today:</strong> ${goal?`${goal} lb${assist?' assistance':''}`:assist?'Choose an assistance level':ex.equipment==='bodyweight'?'Bodyweight':'Choose a comfortable starting load'}</div></div><div class="exerciseDesc"><strong>Jeremy Tips</strong><br>${ex.jeremyTips}</div>${second}<div class="setGrid"><div class="setHead">Set</div><div class="setHead">${assist?'Assistance':'Weight'} lb</div><div class="setHead">Reps${ex.superset?' A / B':''}</div>${Array.from({length:ex.sets},(_,i)=>`<div class="setLabel">${i+1}</div><input class="wpWeight" type="number" step="0.5" value="${today.setWeights?.[i]??goal??''}"><input class="wpRep" type="number" step="1" value="${today.setReps?.[i]??''}">`).join('')}</div>${ex.superset?`<div class="small">Immediately after each A set, log ${ex.partB} reps below.</div><div class="setGrid">${Array.from({length:ex.sets},(_,i)=>`<div class="setLabel">B ${i+1}</div><input class="wpBRep" type="number" step="1" value="${today.partBReps?.[i]??''}"><span></span>`).join('')}</div>`:''}<label class="small"><input id="wpForm" type="checkbox" ${today.formGood!==false?'checked':''}> Reps used acceptable form</label><div id="wpFeedback" class="flagBox"></div><div class="timerBox"><div class="small">Rest before repeating this movement</div><div id="pagedTimer" class="timerDisplay">03:00</div><div class="timerBtns"><button id="startRest" type="button">Start 180 sec</button><button id="resetRest" type="button">Reset</button></div></div></div><div class="workoutNav"><button id="previousExercise" type="button" ${activeWorkoutIndex===0?'disabled':''}>← Previous</button><button id="nextExercise" class="primary" type="button">${activeWorkoutIndex===exercises.length-1?'Complete workout':'Next exercise →'}</button></div>`;
+        function persist(){const weights=[...planRows.querySelectorAll('.wpWeight')].map(x=>x.value),reps=[...planRows.querySelectorAll('.wpRep')].map(x=>x.value),parts=[...planRows.querySelectorAll('.wpBRep')].map(x=>x.value),body=Number(store.days[selectedDate]?.bodyWeight||settings.sharedGoal?.current_weight_lb||0);
+          const payload={type:'weight',value:weights[0]||'',setWeights:weights,setReps:reps,partBReps:parts,formGood:$('wpForm').checked,assistanceAmount:assist?Number(weights[0]||0):null,bodyWeightLb:body,exerciseId:ex.id,exerciseFamily:ex.family,exerciseName:ex.name,exerciseOrder:activeWorkoutIndex+1,currentVariation:ex.variation,progressionLevel:ex.variation,targetSets:ex.sets,repMin:ex.low,repMax:ex.high,goalAtTime:goal,programVersion:Number(settings.workoutProgram.program_version)||0,programSetup:settings.workoutProgram,date:selectedDate};
+          const result=WorkoutProgram.progression(ex,payload,previous,inc);payload.progressionEligible=result.eligible;payload.nextRecommendedWeight=result.nextWeight||'';payload.nextRecommendedVariation=result.nextVariation||'';$('wpFeedback').textContent=result.message;
+          setExerciseLog(key,payload);queueAutoSave();
+        }
+        const experience=Object.keys(store.days).filter(date=>date<selectedDate&&store.days[date]?.workoutLog?.[key]).length;
+        let transition='';
+        if(ex.family==='press'&&!settings.workoutProgram.pressAdvanced&&experience>=6)transition='<button id="wpAdvance" type="button">Consider advanced 6–8 reps</button>';
+        if(ex.family==='rdl'&&ex.variation==='single')transition='<button id="wpAdvance" type="button">Ready for two-dumbbell RDL?</button>';
+        if(ex.family==='rdl'&&ex.variation==='double'&&experience>=3)transition='<button id="wpAdvance" type="button">Barbell loading more convenient?</button>';
+        if(transition){$('wpFeedback').insertAdjacentHTML('afterend',`<div class="btns" style="margin:10px 0">${transition}</div>`);$('wpAdvance').onclick=()=>{const next=ex.family==='press'?'advanced':ex.variation==='single'?'double':'barbell';if(confirm(`Switch future ${ex.family.toUpperCase()} workouts to ${next}? This is your choice, not an automatic threshold.`)){if(ex.family==='press')settings.workoutProgram.pressAdvanced=true;else settings.workoutProgram.rdlLevel=next;saveWorkoutProgramLocal();renderEthierWorkout();}};}
+        planRows.querySelectorAll('input').forEach(x=>x.addEventListener('change',persist));
+        $('previousExercise').onclick=()=>{persist();activeWorkoutIndex--;renderEthierWorkout();};
+        $('nextExercise').onclick=()=>{persist();const logged=getLog(store.days[selectedDate]?.workoutLog?.[key]);if(logged.nextRecommendedVariation){const question=`${logged.nextRecommendedVariation.replaceAll('_',' ')} is now available. Switch to it for future workouts?`;if(confirm(question)){const field=ex.family==='pull'?'pullupLevel':ex.family==='squat'?'squatLevel':null;if(field){settings.workoutProgram[field]=logged.nextRecommendedVariation;saveWorkoutProgramLocal();}}}
+          if(activeWorkoutIndex<exercises.length-1){activeWorkoutIndex++;renderEthierWorkout();}else renderWorkoutComplete('FULL_BODY',exercises);};
+        let left=180,timerId=null;const paint=()=>{$('pagedTimer').textContent=`${String(Math.floor(left/60)).padStart(2,'0')}:${String(left%60).padStart(2,'0')}`;};$('startRest').onclick=()=>{if(timerId)return;timerId=setInterval(()=>{left=Math.max(0,left-1);paint();if(!left){clearInterval(timerId);timerId=null;navigator.vibrate?.(180);}},1000);};$('resetRest').onclick=()=>{if(timerId)clearInterval(timerId);timerId=null;left=180;paint();};
+        if(today.setReps?.some(meaningful))$('wpFeedback').textContent=WorkoutProgram.progression(ex,today,previous,inc).message;
+      }
       function renderPagedWorkout(dayName){
+        if(dayName==='FULL_BODY'){renderEthierWorkout();return;}
         const exercises=workoutsForDay(dayName), ex=exercises[activeWorkoutIndex];
         planTitle.textContent=`${ex.name}`;
         planMeta.textContent=`Exercise ${activeWorkoutIndex+1} of ${exercises.length} · ${prettyDate(selectedDate)}`;
@@ -2680,7 +2788,7 @@
       function renderWorkoutComplete(dayName,exercises){
         planTitle.textContent="Workout Complete"; planMeta.textContent=prettyDate(selectedDate);
         const completed=exercises.filter(ex=>isMeaningfulWorkoutLog({x:store.days[selectedDate]?.workoutLog?.[exerciseKey(dayName,ex)]})).length;
-        const day=ensureDayRecord(selectedDate);day.workoutCompleted=true;day.workoutCompletedAt=new Date().toISOString();day.updatedAt=day.workoutCompletedAt;saveJSON(STORE_KEY,store);queueAutoSave();renderWeeklyWorkoutProgress();
+        const day=ensureDayRecord(selectedDate);day.workoutCompleted=completed>0;day.workoutCompletedAt=completed>0?new Date().toISOString():"";day.updatedAt=new Date().toISOString();day.pendingCloudSync=true;saveJSON(STORE_KEY,store);queueAutoSave();renderWeeklyWorkoutProgress();
         planRows.innerHTML=`<div class="baselineBox"><strong>${completed} of ${exercises.length} exercises logged</strong><div class="small" style="margin-top:6px">Your workout history and next-load recommendations have been saved.</div><button id="finishWorkout" class="primary" type="button" style="margin-top:14px">Done</button></div>`;
         $("finishWorkout").onclick=()=>{closeModal(planBackdrop);renderHistory();renderDashboard();};
       }
@@ -2912,6 +3020,7 @@
         store = { days:{} };
         timers = {};
         settings = JSON.parse(JSON.stringify(DEFAULT_SETTINGS));
+        settings.workoutProgram=WorkoutProgram.defaults();
         cloudState = { lastSyncAt:"" };
         saveJSON(STORE_KEY, store);
         saveJSON(TIMER_KEY, timers);
@@ -3011,7 +3120,7 @@
         const wasCorrection=editingWeightDate===selectedDate;
         const day=ensureDayRecord(selectedDate),now=new Date().toISOString();day.bodyWeight=String(Math.round(value*10)/10);day.weightSaved=true;day.weightSavedAt=now;day.pendingCloudSync=true;day.updatedAt=now;bw.value=day.bodyWeight;saveJSON(STORE_KEY,store);renderWeightEntryState(day);renderHistory();renderWeightAverage();renderDashboard();refreshGoalTexts();updateWorkoutOptions();
         if(wasCorrection){invalidateWeightDependentReviews(selectedDate);editingWeightDate="";renderWeightEntryState(day);renderAdaptiveCoaching();}
-        saveWeightBtn.disabled=true;const synced=await syncCurrentDayToCloud();saveWeightBtn.disabled=false;if(!synced){weightEntryStatus.className="weightEntryStatus failed";weightEntryStatus.textContent="Saved on this device. Cloud sync will retry when connected.";}
+        const loggedDate=selectedDate;void syncCurrentDayToCloud().then(synced=>{if(!synced&&selectedDate===loggedDate){weightEntryStatus.className="weightEntryStatus failed";weightEntryStatus.textContent="Saved on this device. Cloud sync will retry when connected.";}});
         if(value>=60&&value<=700)maybeShowWeeklyCheckin();
       });
       editWeightBtn.addEventListener("click",()=>openWeightEditor(selectedDate));
@@ -3096,9 +3205,10 @@
       });
 
       openPlanBtn.addEventListener("click", openPlanModal);
+      $('editWorkoutProgramBtn').addEventListener('click',()=>{closeModal(settingsBackdrop);renderWorkoutSetup();});
       closeFoodCaptureBtn.addEventListener("click",()=>closeModal(foodCaptureBackdrop));
       foodCaptureBackdrop.addEventListener("click",event=>{if(event.target===foodCaptureBackdrop)closeModal(foodCaptureBackdrop);});
-      saveFoodCaptureBtn.addEventListener("click",async()=>{const text=foodCaptureText.value.trim();if(!text)return;saveFoodCaptureBtn.disabled=true;await queueFoodCapture(text,foodCaptureInputType);saveFoodCaptureBtn.disabled=false;closeModal(foodCaptureBackdrop);foodCaptureText.value="";foodCaptureInputType="typed";});
+      saveFoodCaptureBtn.addEventListener("click",()=>{const text=foodCaptureText.value.trim();if(!text)return;saveFoodCaptureBtn.disabled=true;closeModal(foodCaptureBackdrop);foodCaptureText.value="";const inputType=foodCaptureInputType;foodCaptureInputType="typed";void queueFoodCapture(text,inputType).finally(()=>{saveFoodCaptureBtn.disabled=false;});});
       photoFoodInput.addEventListener("change",()=>captureFoodPhoto(photoFoodInput.files?.[0]));
       closePlanBtn.addEventListener("click", () => {
         Object.keys(timerIntervals).forEach(stopTimer);
@@ -3122,8 +3232,10 @@
 
       resetSettingsBtn.addEventListener("click", () => {
         const sharedGoal=settings.sharedGoal;
+        const workoutProgram=settings.workoutProgram;
         settings = JSON.parse(JSON.stringify(DEFAULT_SETTINGS));
         settings.sharedGoal=sharedGoal;
+        settings.workoutProgram=workoutProgram;
         saveJSON(SETTINGS_KEY, settings);
         refreshGoalTexts();
         syncSettingsToCloud();
@@ -3158,11 +3270,13 @@
       syncGoalTogglesFromInputs();
       if(needsForcedGoalSetup()) maybeOpenStarterGoals();
       initializeCloudSync();
+      loadWorkoutProgram();
       flushWeeklyOutbox();
       flushFoodCaptureOutbox();
       window.addEventListener("online",flushWeeklyOutbox);
       window.addEventListener("online",flushFoodCaptureOutbox);
-      window.addEventListener("online",()=>{if(store.days[selectedDate]?.pendingCloudSync)syncCurrentDayToCloud();});
+      window.addEventListener("online",()=>{loadWorkoutProgram();syncWorkoutProgram();});
+      window.addEventListener("online",flushPendingDailySync);
       setTimeout(()=>{if(!weeklyCheckinBackdrop.classList.contains("show")&&!resumePendingWeeklyDecision()) maybeShowWeeklyCheckin();},2500);
     })();
   </script>

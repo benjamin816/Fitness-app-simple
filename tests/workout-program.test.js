@@ -1,0 +1,18 @@
+const assert=require('node:assert/strict');
+const p=require('../workout-program.js');
+const s=p.defaults();
+const plan=p.plan(s,165);
+assert.deepEqual(plan.slice(0,6).map(x=>x.family),['press','squat','pull','rdl','row','shoulders']);
+assert.equal(plan[0].high,15);
+assert.equal(plan[1].sets,3);
+assert.equal(plan[1].setup.includes('82.5 lb × 10'),true);
+assert.equal(p.progression(plan[0],{setWeights:[35,35,35],setReps:[15,15,15],formGood:true},null,5).nextWeight,40);
+assert.equal(p.progression(plan[0],{setWeights:[35,35,35],setReps:[15,15,14],formGood:true},null,5).eligible,false);
+assert.equal(p.progression(plan[0],{setWeights:[35,35,35],setReps:[15,15,15],formGood:false},null,5).eligible,false);
+assert.equal(p.progression(plan[1],{setWeights:[82.5,82.5,82.5],setReps:[10,10,10],bodyWeightLb:165,formGood:true},null,5).nextVariation,'barbell');
+assert.equal(p.progression(plan[2],{setWeights:[0,0,0],setReps:[15,15,15],formGood:true},null,0).nextVariation,'assisted');
+const assisted=p.plan({...s,pullupLevel:'assisted'},165)[2];
+assert.equal(p.progression(assisted,{setWeights:[50,50,50],setReps:[10,10,10],assistanceAmount:50,formGood:true},{assistanceAmount:40},5).eligible,false);
+assert.equal(p.progression(assisted,{setWeights:[0,0,0],setReps:[10,10,10],assistanceAmount:0,formGood:true},null,5).nextVariation,'neutral');
+assert.equal(p.plan({...s,accessories:['arms','core']},165).length,8);
+console.log('Workout program tests passed');

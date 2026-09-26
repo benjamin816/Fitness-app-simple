@@ -7,6 +7,8 @@ const SHEET_PENDING_GOALS = 'PendingGoals';
 const SHEET_WEEKLY_CHECKINS = 'WeeklyCheckins';
 const SHEET_WAIST_MEASUREMENTS = 'WaistMeasurements';
 const SHEET_FOOD_CAPTURES = 'FoodCaptures';
+const SHEET_WORKOUT_PROGRAM = 'WorkoutProgram';
+const WORKOUT_PROGRAM_HEADERS = ['profile_id','schema_version','program_version','program_json','updated_at','server_updated_at'];
 
 const HEALTH_GOAL_HEADERS = [
   'profile_id','schema_version','age','sex','height_in','current_weight_lb',
@@ -34,11 +36,11 @@ const GOAL_ADJUSTMENT_HEADERS = [
 ];
 
 function isSharedGetAction_(action) {
-  return ['getSharedState','getHealthGoals','getPlannedDaytime','getWeeklyCheckins','getFoodCaptures','getPendingFoodCaptures','getFoodCaptureImage'].indexOf(action) >= 0;
+  return ['getSharedState','getHealthGoals','getPlannedDaytime','getWeeklyCheckins','getFoodCaptures','getPendingFoodCaptures','getFoodCaptureImage','getWorkoutProgram'].indexOf(action) >= 0;
 }
 
 function isSharedPostAction_(action) {
-  return ['saveHealthGoals','savePlannedDaytime','decideGoalAdjustment','saveWeeklyCheckin','saveWaistMeasurement','saveFoodCapture','updateFoodCaptureEstimate','deleteFoodCapture'].indexOf(action) >= 0;
+  return ['saveHealthGoals','savePlannedDaytime','decideGoalAdjustment','saveWeeklyCheckin','saveWaistMeasurement','saveFoodCapture','updateFoodCaptureEstimate','deleteFoodCapture','saveWorkoutProgram'].indexOf(action) >= 0;
 }
 
 function handleSharedGet_(action, params) {
@@ -50,6 +52,7 @@ function handleSharedGet_(action, params) {
   if (action === 'getFoodCaptures') return jsonOut({ok:true,rows:foodCaptures_(String(params.date||''),false)});
   if (action === 'getPendingFoodCaptures') return jsonOut({ok:true,rows:foodCaptures_(String(params.date||''),true)});
   if (action === 'getFoodCaptureImage') return jsonOut(getFoodCaptureImage_(String(params.capture_id||'')));
+  if (action === 'getWorkoutProgram') return jsonOut({ok:true,program:currentWorkoutProgram_()});
   return jsonOut({ ok:true, shared:sharedState_() });
 }
 
@@ -65,6 +68,7 @@ function handleSharedPost_(action, body) {
     if (action === 'saveFoodCapture') return jsonOut(saveFoodCapture_(body.capture||{}));
     if (action === 'updateFoodCaptureEstimate') return jsonOut(updateFoodCaptureEstimate_(body.estimate||body.capture||{}));
     if (action === 'deleteFoodCapture') return jsonOut(deleteFoodCapture_(String(body.capture_id||'')));
+    if (action === 'saveWorkoutProgram') return jsonOut(saveWorkoutProgram_(body.program||{},body.expectedProgramVersion));
     return jsonOut({ok:false,error:'Unknown shared action'});
   } finally {
     lock.releaseLock();
@@ -217,9 +221,25 @@ function getPendingGoalsSheet_(){return ensureSharedSheet_(SHEET_PENDING_GOALS,P
 function getWeeklyCheckinsSheet_(){return ensureSharedSheet_(SHEET_WEEKLY_CHECKINS,WEEKLY_CHECKIN_HEADERS);}
 function getWaistMeasurementsSheet_(){return ensureSharedSheet_(SHEET_WAIST_MEASUREMENTS,WAIST_HEADERS);}
 function getFoodCapturesSheet_(){return ensureSharedSheet_(SHEET_FOOD_CAPTURES,FOOD_CAPTURE_HEADERS);}
+function getWorkoutProgramSheet_(){return ensureSharedSheet_(SHEET_WORKOUT_PROGRAM,WORKOUT_PROGRAM_HEADERS);}
+
+function currentWorkoutProgram_(){
+  const rows=rowsAsObjects_(getWorkoutProgramSheet_());
+  if(!rows.length)return null;
+  const row=rows[rows.length-1];
+  try{return Object.assign(JSON.parse(String(row.program_json||'{}')),{program_version:Number(row.program_version)||0,updated_at:String(row.updated_at||'')});}catch{return null;}
+}
+function saveWorkoutProgram_(program,expectedVersion){
+  const current=currentWorkoutProgram_(),version=Number(current&&current.program_version)||0;
+  if(Number(expectedVersion)!==version)return {ok:false,error:'Version conflict',current:current};
+  const next=Object.assign({},program,{program_version:version+1,updated_at:new Date().toISOString()});
+  const row={profile_id:'default',schema_version:'1.0.0',program_version:next.program_version,program_json:JSON.stringify(next),updated_at:next.updated_at,server_updated_at:next.updated_at};
+  replaceSingleRow_(getWorkoutProgramSheet_(),WORKOUT_PROGRAM_HEADERS,row);
+  return {ok:true,program:next};
+}
 
 function purgeSharedHealthData_(){
-  [getHealthGoalsSheet_(),getPlannedDaytimeSheet_(),getGoalAdjustmentsSheet_(),getPendingGoalsSheet_(),getWeeklyCheckinsSheet_(),getWaistMeasurementsSheet_(),getFoodCapturesSheet_()].forEach(sheet=>{
+  [getHealthGoalsSheet_(),getPlannedDaytimeSheet_(),getGoalAdjustmentsSheet_(),getPendingGoalsSheet_(),getWeeklyCheckinsSheet_(),getWaistMeasurementsSheet_(),getFoodCapturesSheet_(),getWorkoutProgramSheet_()].forEach(sheet=>{
     const last=sheet.getLastRow();
     if(last>1) sheet.deleteRows(2,last-1);
   });
