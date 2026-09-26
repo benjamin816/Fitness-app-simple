@@ -7,6 +7,8 @@ assert.equal(plan[0].high,15);
 assert.equal(plan[1].sets,3);
 assert.equal(plan[1].setup.includes('82.5 lb × 10'),true);
 assert.equal(p.progression(plan[0],{setWeights:[35,35,35],setReps:[15,15,15],formGood:true},null,5).nextWeight,40);
+assert.equal(p.progression(plan[0],{setWeights:[35,35,35],setReps:[15,15,15],formGood:true},null,null).nextWeight,40);
+assert.equal(p.plan({...s,squatStance:'hip width, toes forward',rdlStance:'wide, toes farther out'},165)[3].setup.includes('hip width, toes forward'),true);
 assert.equal(p.progression(plan[0],{setWeights:[35,35,35],setReps:[15,15,14],formGood:true},null,5).eligible,false);
 assert.equal(p.progression(plan[0],{setWeights:[35,35,35],setReps:[15,15,15],formGood:false},null,5).eligible,false);
 assert.equal(p.progression(plan[1],{setWeights:[82.5,82.5,82.5],setReps:[10,10,10],bodyWeightLb:165,formGood:true},null,5).nextVariation,'barbell');

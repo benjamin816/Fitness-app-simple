@@ -19,11 +19,11 @@ const {pathToFileURL}=require('node:url');
   await page.locator('[data-choice="hip width, toes forward"]').click();await page.locator('#workoutSetupNext').click();
   await page.locator('#workoutSetupNext').click();
   await page.locator('#workoutSetupInput').fill('0');await page.locator('#workoutSetupNext').click();
-  await page.locator('[data-choice="hip width, toes forward"]').click();await page.locator('#workoutSetupNext').click();
   await page.locator('#workoutSetupNext').click();
   await page.locator('#workoutSetupNext').click();
-  for(let i=0;i<4;i++){await page.locator('#workoutSetupInput').fill('5');await page.locator('#workoutSetupNext').click();}
   await page.getByText('Low-Incline Dumbbell Press',{exact:true}).first().waitFor();
+  const program=await page.evaluate(()=>JSON.parse(localStorage.getItem('ben_tracker_v12_settings')).workoutProgram);
+  if(program.rdlStance!==program.squatStance)throw new Error('Hinge stance did not reuse squat stance');
   if(!await page.locator('#planBackdrop.workoutFullscreen').count())throw new Error('Workout tracker is not full screen');
   if(await page.locator('.wpWeight:visible').count()!==1||await page.locator('.wpRep:visible').count()!==1)throw new Error('Tracker must show one set at a time');
   await page.locator('.wpWeight').first().fill('35');

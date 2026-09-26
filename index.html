@@ -410,7 +410,7 @@
     </div>
 
     <div id="syncStatus" class="footerSync">● syncing</div>
-    <div class="appVersion">Fitness Tracker · v3.6.0</div>
+    <div class="appVersion">Fitness Tracker · v3.6.1</div>
   </div>
 
   <div class="savingPlan" id="savingPlan" aria-hidden="true"><div><div class="savingSpinner"></div><h2>Saving your plan…</h2><p>Connecting your goals across both apps.</p></div></div>
@@ -485,13 +485,13 @@
         </div>
         <div id="wizardControl" class="wizardControl"></div>
         <div id="goalPreview" class="small" style="margin-top:12px"></div>
-        <div class="wizardNav"><button id="wizardBackBtn" class="wizardBack" type="button">← Back</button><button id="wizardNextBtn" class="wizardNext" type="button">Next →</button></div><div class="wizardVersion">Fitness Tracker · v3.6.0</div>
+        <div class="wizardNav"><button id="wizardBackBtn" class="wizardBack" type="button">← Back</button><button id="wizardNextBtn" class="wizardNext" type="button">Next →</button></div><div class="wizardVersion">Fitness Tracker · v3.6.1</div>
         <button id="saveGoalsBtn" class="primary" type="button" style="margin-top:12px">Save shared goals</button>
       </div>
       </div>
 
       <div class="settingsExtras">
-      <div class="baselineBox"><strong>Workout program</strong><div class="small">Adjust your exercise setup, progression levels, accessories, and available equipment increments.</div><button id="editWorkoutProgramBtn" type="button" style="margin-top:10px">Review workout setup</button></div>
+      <div class="baselineBox"><strong>Workout program</strong><div class="small">Review your exercise setup and the areas you want to focus on.</div><button id="editWorkoutProgramBtn" type="button" style="margin-top:10px">Review workout setup</button></div>
       <div hidden><input id="setStepsGoal"><input id="setCalsGoal"><input id="setProteinPerLb" value="1"><span id="proteinPerLbHint"></span><span id="derivedProteinGoal"></span><input id="setIncrement"><input id="setTimeIncrement"></div>
 
       <div class="hr"></div>
@@ -531,7 +531,7 @@
     </div>
   </div>
 
-  <script src="workout-program.js?v=3.6.0"></script>
+  <script src="workout-program.js?v=3.6.1"></script>
   <script>
     (() => {
       const GAS_URL = "https://script.google.com/macros/s/AKfycbxuV80tGBBeKjsu9a9axHQltFCgLkbwG99SKlmsAcZ8IOWtWhFfFUnMmhj49Kttu6j-/exec";
@@ -2720,61 +2720,40 @@
           if(remote&&Number(remote.program_version)>Number(local?.program_version||0)){settings.workoutProgram={...WorkoutProgram.defaults(),...remote,pendingCloudSync:false};saveJSON(SETTINGS_KEY,settings);if(remote.setupComplete&&planBackdrop.classList.contains('show')&&planTitle.textContent==='Set up your workout'){activeWorkoutIndex=0;renderEthierWorkout();}}
         }catch{}
       }
-      function workoutChoice(label,value,current){return `<option value="${value}" ${current===value?'selected':''}>${label}</option>`;}
       let workoutSetupStep=0,workoutSetupDraft=null;
       const workoutSetupSteps=[
-        {key:'benchNotches',icon:'🏋️',title:'Find your incline',help:'Set your phone on your sternum while seated on the bench. Which angle looks closest?',choices:[['1','Mostly upright','Bench about one notch back'],['2','Angled backward','Bench about two notches back']]},
+        {key:'benchNotches',icon:'🏋️',title:'Find your incline',help:'Start from a flat bench. Notch angles vary by bench, so use these as a rough guide.',choices:[['1','1 notch back · about 15°','A gentle low incline'],['2','2 notches back · about 30°','A slightly steeper low incline']]},
         {key:'squatStance',icon:'🦵',title:'Your squat stance',help:'Choose the position that feels natural and stable.',choices:[['slightly wide, toes out','Slightly wide','Toes pointed a little outward'],['hip width, toes forward','Hip width','Toes mostly forward'],['wide, toes farther out','Wide','Toes farther outward']]},
         {key:'squatEmphasis',icon:'⚖️',title:'Squat emphasis',help:'Your program can lean a little toward one area. Balanced is a great starting point.',choices:[['balanced','Balanced','Whole lower body'],['quads','Quads','Heel-elevated setup'],['glutes','Glutes','Box or bench setup']]},
-        {key:'pullupBaseline',icon:'💪',title:'Pull-ups right now',help:'How many strict unassisted pull-ups can you do? Zero is completely fine.',number:true,min:0,placeholder:'0'},
-        {key:'rdlStance',icon:'🌱',title:'Your hinge stance',help:'For Romanian deadlifts, imagine hopping and sticking the landing.',choices:[['hip width, toes forward','Hip width','Feet under hips, toes forward'],['slightly wider, toes out','Slightly wider','Toes angled outward']]},
+        {key:'pullupBaseline',icon:'💪',title:'Overhand pull-ups',help:'How many strict, unassisted overhand pull-ups can you do? Count only palms-away reps—not neutral-grip reps. Zero is completely fine.',number:true,min:0,placeholder:'0'},
         {key:'rdlEmphasis',icon:'🎯',title:'Hinge emphasis',help:'What would you rather focus on?',choices:[['hamstring','Hamstrings','Feel the stretch down the back of your legs'],['glute','Glutes','Focus on driving your hips through']]},
-        {key:'accessories',icon:'✨',title:'Your priorities',help:'Tap one or two areas you would most like to bring up.',multi:true,choices:Object.entries(WorkoutProgram.priorities).map(([k,v])=>[k,v.name,''])},
-        ...[['dumbbell','Dumbbells','🏋️'],['barbell','Barbell','⚙️'],['cable','Cable stack','🔗'],['assistance','Pull-up assistance','🙌']].map(([key,title,icon])=>({key,icon,title:`${title} increment`,help:'What is the smallest weight change available at your gym? You can leave this blank and add it later.',number:true,optional:true,min:.5,placeholder:'Optional · pounds'}))
+        {key:'accessories',icon:'✨',title:'What areas matter most?',help:'Choose up to two areas you want to work on. Your plan will include focused movements for them.',multi:true,choices:[['core','Core & abs','Builds trunk stability and control'],['glutes','Glutes & hips','Builds hip strength and shape'],['calves','Calves','Builds lower-leg strength'],['arms','Arms','Builds biceps and triceps'],['upperBack','Upper back','Builds posture and upper-back strength'],['upperChest','Upper chest','Builds the upper part of your chest']]}
       ];
-      function workoutSetupValue(step){return ['dumbbell','barbell','cable','assistance'].includes(step.key)?workoutSetupDraft.increments?.[step.key]:workoutSetupDraft[step.key];}
+      function workoutSetupValue(step){return workoutSetupDraft[step.key];}
       function showWorkoutSetupStep(){
         const step=workoutSetupSteps[workoutSetupStep],value=workoutSetupValue(step),selected=step.multi?(value||[]):[String(value??'')];
         planTitle.textContent='Set up your workout';planMeta.textContent=`Question ${workoutSetupStep+1} of ${workoutSetupSteps.length}`;
         const choices=step.choices?`<div class="workoutStepChoices">${step.choices.map(([v,label,detail])=>`<button class="workoutStepChoice ${selected.includes(String(v))?'selected':''}" type="button" data-choice="${v}"><strong>${label}</strong>${detail?`<small>${detail}</small>`:''}</button>`).join('')}</div>`:'';
-        const input=step.number?`<input id="workoutSetupInput" class="workoutStepInput" type="number" inputmode="decimal" min="${step.min}" step="${step.key==='pullupBaseline'?'1':'0.5'}" value="${value??''}" placeholder="${step.placeholder}" aria-label="${step.title}">`:'';
+        const input=step.number?`<input id="workoutSetupInput" class="workoutStepInput" type="number" inputmode="numeric" min="${step.min}" step="1" value="${value??''}" placeholder="${step.placeholder}" aria-label="${step.title}">`:'';
         planRows.innerHTML=`<section class="workoutStep"><div class="workoutStepProgress"><span style="width:${Math.round((workoutSetupStep+1)/workoutSetupSteps.length*100)}%"></span></div><div class="workoutStepIcon">${step.icon}</div><h2>${step.title}</h2><p>${step.help}</p>${choices}${input}<div class="workoutStepFoot"><button class="back" id="workoutSetupBack" type="button" ${workoutSetupStep===0?'disabled':''}>← Back</button><button class="primary" id="workoutSetupNext" type="button">${workoutSetupStep===workoutSetupSteps.length-1?'Save setup':'Continue →'}</button></div></section>`;
         planRows.querySelectorAll('[data-choice]').forEach(btn=>btn.onclick=()=>{const choice=btn.dataset.choice;if(step.multi){const values=[...(workoutSetupDraft.accessories||[])];const index=values.indexOf(choice);if(index>=0)values.splice(index,1);else if(values.length<2)values.push(choice);workoutSetupDraft.accessories=values;}else workoutSetupDraft[step.key]=step.key==='benchNotches'?Number(choice):choice;showWorkoutSetupStep();});
-        if(step.number)$('workoutSetupInput').oninput=e=>{const raw=e.target.value;const parsed=raw===''?null:Number(raw);if(['dumbbell','barbell','cable','assistance'].includes(step.key))workoutSetupDraft.increments[step.key]=parsed;else workoutSetupDraft[step.key]=parsed;};
+        if(step.number)$('workoutSetupInput').oninput=e=>{const raw=e.target.value;workoutSetupDraft[step.key]=raw===''?null:Number(raw);};
         $('workoutSetupBack').onclick=()=>{if(workoutSetupStep>0){workoutSetupStep--;showWorkoutSetupStep();}};
         $('workoutSetupNext').onclick=()=>{const current=workoutSetupValue(step);if(!step.optional&&(current===null||current===undefined||current===''||(step.multi&&!current.length))){alert('Please choose an answer to continue.');return;}if(step.number&&current!==null&&Number(current)<step.min){alert('Please enter a valid number.');return;}if(workoutSetupStep<workoutSetupSteps.length-1){workoutSetupStep++;showWorkoutSetupStep();return;}saveWorkoutSetup();};
         planRows.scrollIntoView?.({block:'start'});
       }
       function saveWorkoutSetup(){
         const s=settings.workoutProgram,d=workoutSetupDraft,firstSetup=!s.setupComplete,accessories=d.accessories,prioritiesChanged=JSON.stringify(accessories)!==JSON.stringify(s.accessories||[]);
-        Object.assign(s,{setupComplete:true,benchNotches:d.benchNotches,squatStance:d.squatStance,squatEmphasis:d.squatEmphasis,pullupBaseline:d.pullupBaseline,pullupLevel:firstSetup?(d.pullupBaseline>0?'assisted':'inverted'):s.pullupLevel,rdlStance:d.rdlStance,rdlEmphasis:d.rdlEmphasis,accessories,accessorySelectedAt:firstSetup||prioritiesChanged?todayISO():s.accessorySelectedAt,increments:{...d.increments}});
+        Object.assign(s,{setupComplete:true,benchNotches:d.benchNotches,squatStance:d.squatStance,squatEmphasis:d.squatEmphasis,pullupBaseline:d.pullupBaseline,pullupBaselineGrip:'overhand',pullupLevel:firstSetup?(d.pullupBaseline>0?'assisted':'inverted'):s.pullupLevel,rdlStance:d.squatStance,rdlEmphasis:d.rdlEmphasis,accessories,accessorySelectedAt:firstSetup||prioritiesChanged?todayISO():s.accessorySelectedAt,increments:{...d.increments}});
         saveWorkoutProgramLocal();activeWorkoutIndex=0;workoutFocusExercise=-1;workoutFocusStage=0;renderEthierWorkout();
       }
       function renderWorkoutSetup(){
-        workoutSetupDraft=JSON.parse(JSON.stringify(settings.workoutProgram));workoutSetupDraft.increments={...settings.workoutProgram.increments};workoutSetupStep=0;planBackdrop.classList.add('workoutFullscreen');showWorkoutSetupStep();openModal(planBackdrop);return;
-        const s=settings.workoutProgram;
-        planTitle.textContent='Set up your workout';planMeta.textContent='A few choices that change your program';
-        planRows.innerHTML=`<div class="baselineBox"><div class="goalForm">
-          <label>Find your incline · phone at sternum<select id="wpBench">${workoutChoice('Choose one','0',String(s.benchNotches||0))}${workoutChoice('Sternum mostly vertical · bench 1 notch','1',String(s.benchNotches))}${workoutChoice('Sternum angles backward · bench 2 notches','2',String(s.benchNotches))}</select></label>
-          <label>Squat stance that feels natural<select id="wpSquatStance">${workoutChoice('Choose one','',s.squatStance)}${workoutChoice('Slightly wide, toes out','slightly wide, toes out',s.squatStance)}${workoutChoice('Hip width, toes forward','hip width, toes forward',s.squatStance)}${workoutChoice('Wide, toes farther out','wide, toes farther out',s.squatStance)}</select></label>
-          <label>Squat emphasis<select id="wpSquatEmphasis">${workoutChoice('Balanced','balanced',s.squatEmphasis)}${workoutChoice('Quads · heel-elevated','quads',s.squatEmphasis)}${workoutChoice('Glutes · box/bench','glutes',s.squatEmphasis)}</select></label>
-          <label>Strict unassisted pull-ups now<input id="wpPullups" type="number" min="0" step="1" value="${s.pullupBaseline??''}" placeholder="0"></label>
-          <label>RDL stance · hop and stick the landing<select id="wpRdlStance">${workoutChoice('Choose one','',s.rdlStance)}${workoutChoice('Hip width, toes forward','hip width, toes forward',s.rdlStance)}${workoutChoice('Slightly wider, toes out','slightly wider, toes out',s.rdlStance)}</select></label>
-          <label>RDL emphasis<select id="wpRdlEmphasis">${workoutChoice('Hamstrings','hamstring',s.rdlEmphasis)}${workoutChoice('Glutes','glute',s.rdlEmphasis)}</select></label>
-          <label>Your top 1–2 priorities<select id="wpPriority1">${Object.entries(WorkoutProgram.priorities).map(([k,v])=>workoutChoice(v.name,k,s.accessories?.[0])).join('')}</select></label>
-          <label>Second priority (optional)<select id="wpPriority2">${workoutChoice('None','',s.accessories?.[1]||'')}${Object.entries(WorkoutProgram.priorities).map(([k,v])=>workoutChoice(v.name,k,s.accessories?.[1])).join('')}</select></label>
-          <label>Dumbbell increment (lb)<input id="wpDbIncrement" type="number" min="0.5" step="0.5" value="${s.increments?.dumbbell??''}" placeholder="Ask once"></label>
-          <label>Barbell increment (lb)<input id="wpBarIncrement" type="number" min="0.5" step="0.5" value="${s.increments?.barbell??''}" placeholder="Ask once"></label>
-          <label>Cable-stack increment (lb)<input id="wpCableIncrement" type="number" min="0.5" step="0.5" value="${s.increments?.cable??''}" placeholder="Ask once"></label>
-          <label>Assistance increment (lb)<input id="wpAssistIncrement" type="number" min="0.5" step="0.5" value="${s.increments?.assistance??''}" placeholder="Ask once"></label>
-        </div><div class="small">Starting body weight: ${Number(store.days[selectedDate]?.bodyWeight||settings.sharedGoal?.current_weight_lb||0)||'Add a weigh-in when available'} lb. Dead Bug is the recommended beginner accessory.</div><button id="wpSave" class="primary" type="button" style="margin-top:12px;width:100%">Save workout setup</button></div>`;
-        $('wpSave').onclick=()=>{
-          const first=$('wpPriority1').value,second=$('wpPriority2').value;
-          if(!$('wpBench').value||!$('wpSquatStance').value||!$('wpRdlStance').value||$('wpPullups').value===''||first===second){alert('Choose your incline, stances, pull-up baseline, and distinct priorities.');return;}
-          const baseline=Number($('wpPullups').value),firstSetup=!s.setupComplete,accessories=[first,second].filter(Boolean),prioritiesChanged=JSON.stringify(accessories)!==JSON.stringify(s.accessories||[]);
-          Object.assign(s,{setupComplete:true,benchNotches:Number($('wpBench').value),squatStance:$('wpSquatStance').value,squatEmphasis:$('wpSquatEmphasis').value,pullupBaseline:baseline,pullupLevel:firstSetup?(baseline>0?'assisted':'inverted'):s.pullupLevel,rdlStance:$('wpRdlStance').value,rdlEmphasis:$('wpRdlEmphasis').value,accessories,accessorySelectedAt:firstSetup||prioritiesChanged?todayISO():s.accessorySelectedAt,increments:{dumbbell:Number($('wpDbIncrement').value)||null,barbell:Number($('wpBarIncrement').value)||null,cable:Number($('wpCableIncrement').value)||null,assistance:Number($('wpAssistIncrement').value)||null}});
-          saveWorkoutProgramLocal();activeWorkoutIndex=0;renderEthierWorkout();
-        };
+        workoutSetupDraft=JSON.parse(JSON.stringify(settings.workoutProgram));
+        workoutSetupDraft.increments={...settings.workoutProgram.increments};
+        if(workoutSetupDraft.setupComplete&&workoutSetupDraft.pullupBaselineGrip!=='overhand')workoutSetupDraft.pullupBaseline=null;
+        workoutSetupStep=0;
+        planBackdrop.classList.add('workoutFullscreen');
+        showWorkoutSetupStep();
         openModal(planBackdrop);
       }
       function previousEthierLog(ex){
