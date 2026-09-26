@@ -2470,6 +2470,7 @@
 
         planBackdrop.classList.toggle('workoutFullscreen',dayName==='FULL_BODY');
         activeWorkoutIndex = 0;
+        workoutFocusExercise=-1;workoutFocusStage=0;
         renderPagedWorkout(dayName);
         openModal(planBackdrop);
         return;
@@ -2747,7 +2748,7 @@
       function saveWorkoutSetup(){
         const s=settings.workoutProgram,d=workoutSetupDraft,firstSetup=!s.setupComplete,accessories=d.accessories,prioritiesChanged=JSON.stringify(accessories)!==JSON.stringify(s.accessories||[]);
         Object.assign(s,{setupComplete:true,benchNotches:d.benchNotches,squatStance:d.squatStance,squatEmphasis:d.squatEmphasis,pullupBaseline:d.pullupBaseline,pullupLevel:firstSetup?(d.pullupBaseline>0?'assisted':'inverted'):s.pullupLevel,rdlStance:d.rdlStance,rdlEmphasis:d.rdlEmphasis,accessories,accessorySelectedAt:firstSetup||prioritiesChanged?todayISO():s.accessorySelectedAt,increments:{...d.increments}});
-        saveWorkoutProgramLocal();activeWorkoutIndex=0;renderEthierWorkout();
+        saveWorkoutProgramLocal();activeWorkoutIndex=0;workoutFocusExercise=-1;workoutFocusStage=0;renderEthierWorkout();
       }
       function renderWorkoutSetup(){
         workoutSetupDraft=JSON.parse(JSON.stringify(settings.workoutProgram));workoutSetupDraft.increments={...settings.workoutProgram.increments};workoutSetupStep=0;planBackdrop.classList.add('workoutFullscreen');showWorkoutSetupStep();openModal(planBackdrop);return;
