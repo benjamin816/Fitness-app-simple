@@ -212,6 +212,31 @@
     .modalHeader{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:10px}
     .modalHeader h3{margin:0;font-size:15px}
     .modalHeader .meta{margin-top:4px;color:var(--muted);font-size:12px}
+    #planBackdrop.workoutFullscreen{z-index:1250;padding:0;background:linear-gradient(145deg,#4331aa,#7165df 54%,#13a88f);color:#fff}
+    #planBackdrop.workoutFullscreen .modal{width:100%;height:100dvh;max-height:none;overflow:auto;border:0;border-radius:0;box-shadow:none;background:transparent;color:#fff;padding:max(18px,env(safe-area-inset-top)) max(18px,env(safe-area-inset-right)) max(20px,env(safe-area-inset-bottom)) max(18px,env(safe-area-inset-left));display:flex;flex-direction:column}
+    #planBackdrop.workoutFullscreen .modalHeader{width:min(560px,100%);margin:0 auto 18px;align-items:center}
+    #planBackdrop.workoutFullscreen .modalHeader h3{font-size:13px;text-transform:uppercase;letter-spacing:1.5px;color:#ffffffc9}
+    #planBackdrop.workoutFullscreen .modalHeader .meta{color:#ffffffb8}
+    #planBackdrop.workoutFullscreen .modalHeader button{background:#ffffff24;color:#fff;border:1px solid #ffffff45;box-shadow:none}
+    #planBackdrop.workoutFullscreen .modalHeader+.small{display:none}
+    #planBackdrop.workoutFullscreen #planRows{width:min(560px,100%);margin:auto;animation:checkinFade .25s ease both}
+    #planBackdrop.workoutFullscreen .small{color:#ffffffcb}
+    .workoutStep{display:flex;flex-direction:column;gap:16px;text-align:center;min-height:min(660px,calc(100dvh - 130px))}
+    .workoutStepIcon{width:92px;height:92px;display:grid;place-items:center;margin:4px auto 0;border-radius:28px;background:#ffffff27;font-size:46px;box-shadow:0 15px 35px #23126140;animation:checkinFloat 3s ease-in-out infinite}
+    .workoutStepProgress{height:7px;border-radius:20px;background:#ffffff45;overflow:hidden}.workoutStepProgress span{display:block;height:100%;border-radius:20px;background:#fff;transition:width .25s}
+    .workoutStep h2{font-size:clamp(32px,8vw,46px);line-height:1.08;letter-spacing:-1.3px;margin:0}.workoutStep p{margin:0;color:#ffffffe0;line-height:1.5}
+    .workoutStepChoices{display:grid;gap:10px;text-align:left;margin-top:4px}.workoutStepChoice{width:100%;padding:17px;border:2px solid #ffffff50;border-radius:20px;background:#ffffff20;color:#fff;box-shadow:none;text-align:left;font-size:16px;font-weight:850}.workoutStepChoice.selected{background:#fff;border-color:#fff;color:#39289d}.workoutStepChoice small{display:block;margin-top:4px;font-weight:600;line-height:1.4;color:inherit;opacity:.75}
+    .workoutStepInput{width:100%;font-size:30px!important;text-align:center;padding:18px!important;border:2px solid #ffffffa0!important;border-radius:20px!important;background:#fff!important;color:#29205b!important}
+    .workoutStepFoot{display:flex;gap:10px;margin-top:auto;padding-top:20px}.workoutStepFoot button{min-height:55px}.workoutStepFoot .primary{flex:1;background:#fff;color:#3e2ba0;border:0}.workoutStepFoot .back{background:#ffffff24;color:#fff;border:1px solid #ffffff50;box-shadow:none}
+    #planBackdrop.workoutFullscreen .exerciseCard,#planBackdrop.workoutFullscreen .baselineBox{background:#ffffff20;border:1px solid #ffffff50;color:#fff;border-radius:24px}
+    #planBackdrop.workoutFullscreen .exerciseName,#planBackdrop.workoutFullscreen .exerciseMeta,#planBackdrop.workoutFullscreen .exerciseDesc,#planBackdrop.workoutFullscreen .goalMeta{color:#fff}
+    #planBackdrop.workoutFullscreen .exerciseCard img,#planBackdrop.workoutFullscreen .exerciseCard video{width:min(100%,300px);max-height:260px;object-fit:contain;background:#ffffffea;margin:auto;display:block}
+    #planBackdrop.workoutFullscreen .exerciseCard{margin:0 auto}.workoutSetFocus{display:grid;gap:12px;text-align:center}.workoutSetFocus h2{font-size:clamp(30px,7vw,42px);margin:0}.workoutSetFocus .setInputs{display:grid;grid-template-columns:1fr 1fr;gap:12px;text-align:left}.workoutSetFocus .setInputs input{width:100%;font-size:23px;text-align:center;background:#fff;color:#28205d;border:0;padding:15px;border-radius:16px}
+    #planBackdrop.workoutFullscreen .exerciseCard>.small{display:none}#planBackdrop.workoutFullscreen .exerciseDesc{margin-top:10px}#planBackdrop.workoutFullscreen .workoutTips{text-align:left;margin:10px 0}#planBackdrop.workoutFullscreen .workoutTips summary{cursor:pointer;font-weight:850;color:#fff}
+    #planBackdrop.workoutFullscreen .setGrid{grid-template-columns:48px 1fr 1fr;gap:8px;margin-top:14px}#planBackdrop.workoutFullscreen .setGrid input{min-width:0;width:100%;font-size:22px;padding:12px 4px;text-align:center;border:0;border-radius:13px;background:#fff;color:#29205d}#planBackdrop.workoutFullscreen .setHead{color:#ffffffcc}
+    #planBackdrop.workoutFullscreen .goalMeta{background:#ffffff1c;border-color:#ffffff45}#planBackdrop.workoutFullscreen .timerBox{background:#ffffff20;border-color:#ffffff45}#planBackdrop.workoutFullscreen .timerBox button{background:#ffffff2c;color:#fff;border:1px solid #ffffff60}
+    #planBackdrop.workoutFullscreen .workoutNav{width:min(560px,100%);margin:16px auto 0;display:flex;gap:10px}#planBackdrop.workoutFullscreen .workoutNav button{min-height:55px}#planBackdrop.workoutFullscreen .workoutNav .primary{flex:1;background:#fff;color:#39289d;border:0}
+    @media (prefers-reduced-motion:reduce){.workoutStepIcon{animation:none}#planBackdrop.workoutFullscreen #planRows{animation:none}}
 
     .exerciseCard{border:1px solid var(--line);border-radius:16px;padding:12px;margin:12px 0;background:#fff}
     .exerciseRow{display:flex;gap:16px;align-items:flex-start}
@@ -385,7 +410,7 @@
     </div>
 
     <div id="syncStatus" class="footerSync">● syncing</div>
-    <div class="appVersion">Fitness Tracker · v3.5.1</div>
+    <div class="appVersion">Fitness Tracker · v3.6.0</div>
   </div>
 
   <div class="savingPlan" id="savingPlan" aria-hidden="true"><div><div class="savingSpinner"></div><h2>Saving your plan…</h2><p>Connecting your goals across both apps.</p></div></div>
@@ -460,7 +485,7 @@
         </div>
         <div id="wizardControl" class="wizardControl"></div>
         <div id="goalPreview" class="small" style="margin-top:12px"></div>
-        <div class="wizardNav"><button id="wizardBackBtn" class="wizardBack" type="button">← Back</button><button id="wizardNextBtn" class="wizardNext" type="button">Next →</button></div><div class="wizardVersion">Fitness Tracker · v3.5.1</div>
+        <div class="wizardNav"><button id="wizardBackBtn" class="wizardBack" type="button">← Back</button><button id="wizardNextBtn" class="wizardNext" type="button">Next →</button></div><div class="wizardVersion">Fitness Tracker · v3.6.0</div>
         <button id="saveGoalsBtn" class="primary" type="button" style="margin-top:12px">Save shared goals</button>
       </div>
       </div>
@@ -506,7 +531,7 @@
     </div>
   </div>
 
-  <script src="workout-program.js?v=3.5.1"></script>
+  <script src="workout-program.js?v=3.6.0"></script>
   <script>
     (() => {
       const GAS_URL = "https://script.google.com/macros/s/AKfycbxuV80tGBBeKjsu9a9axHQltFCgLkbwG99SKlmsAcZ8IOWtWhFfFUnMmhj49Kttu6j-/exec";
@@ -2443,6 +2468,7 @@
         }
         if(!workoutsForDay(dayName).length) return;
 
+        planBackdrop.classList.toggle('workoutFullscreen',dayName==='FULL_BODY');
         activeWorkoutIndex = 0;
         renderPagedWorkout(dayName);
         openModal(planBackdrop);
@@ -2694,7 +2720,37 @@
         }catch{}
       }
       function workoutChoice(label,value,current){return `<option value="${value}" ${current===value?'selected':''}>${label}</option>`;}
+      let workoutSetupStep=0,workoutSetupDraft=null;
+      const workoutSetupSteps=[
+        {key:'benchNotches',icon:'🏋️',title:'Find your incline',help:'Set your phone on your sternum while seated on the bench. Which angle looks closest?',choices:[['1','Mostly upright','Bench about one notch back'],['2','Angled backward','Bench about two notches back']]},
+        {key:'squatStance',icon:'🦵',title:'Your squat stance',help:'Choose the position that feels natural and stable.',choices:[['slightly wide, toes out','Slightly wide','Toes pointed a little outward'],['hip width, toes forward','Hip width','Toes mostly forward'],['wide, toes farther out','Wide','Toes farther outward']]},
+        {key:'squatEmphasis',icon:'⚖️',title:'Squat emphasis',help:'Your program can lean a little toward one area. Balanced is a great starting point.',choices:[['balanced','Balanced','Whole lower body'],['quads','Quads','Heel-elevated setup'],['glutes','Glutes','Box or bench setup']]},
+        {key:'pullupBaseline',icon:'💪',title:'Pull-ups right now',help:'How many strict unassisted pull-ups can you do? Zero is completely fine.',number:true,min:0,placeholder:'0'},
+        {key:'rdlStance',icon:'🌱',title:'Your hinge stance',help:'For Romanian deadlifts, imagine hopping and sticking the landing.',choices:[['hip width, toes forward','Hip width','Feet under hips, toes forward'],['slightly wider, toes out','Slightly wider','Toes angled outward']]},
+        {key:'rdlEmphasis',icon:'🎯',title:'Hinge emphasis',help:'What would you rather focus on?',choices:[['hamstring','Hamstrings','Feel the stretch down the back of your legs'],['glute','Glutes','Focus on driving your hips through']]},
+        {key:'accessories',icon:'✨',title:'Your priorities',help:'Tap one or two areas you would most like to bring up.',multi:true,choices:Object.entries(WorkoutProgram.priorities).map(([k,v])=>[k,v.name,''])},
+        ...[['dumbbell','Dumbbells','🏋️'],['barbell','Barbell','⚙️'],['cable','Cable stack','🔗'],['assistance','Pull-up assistance','🙌']].map(([key,title,icon])=>({key,icon,title:`${title} increment`,help:'What is the smallest weight change available at your gym? You can leave this blank and add it later.',number:true,optional:true,min:.5,placeholder:'Optional · pounds'}))
+      ];
+      function workoutSetupValue(step){return ['dumbbell','barbell','cable','assistance'].includes(step.key)?workoutSetupDraft.increments?.[step.key]:workoutSetupDraft[step.key];}
+      function showWorkoutSetupStep(){
+        const step=workoutSetupSteps[workoutSetupStep],value=workoutSetupValue(step),selected=step.multi?(value||[]):[String(value??'')];
+        planTitle.textContent='Set up your workout';planMeta.textContent=`Question ${workoutSetupStep+1} of ${workoutSetupSteps.length}`;
+        const choices=step.choices?`<div class="workoutStepChoices">${step.choices.map(([v,label,detail])=>`<button class="workoutStepChoice ${selected.includes(String(v))?'selected':''}" type="button" data-choice="${v}"><strong>${label}</strong>${detail?`<small>${detail}</small>`:''}</button>`).join('')}</div>`:'';
+        const input=step.number?`<input id="workoutSetupInput" class="workoutStepInput" type="number" inputmode="decimal" min="${step.min}" step="${step.key==='pullupBaseline'?'1':'0.5'}" value="${value??''}" placeholder="${step.placeholder}" aria-label="${step.title}">`:'';
+        planRows.innerHTML=`<section class="workoutStep"><div class="workoutStepProgress"><span style="width:${Math.round((workoutSetupStep+1)/workoutSetupSteps.length*100)}%"></span></div><div class="workoutStepIcon">${step.icon}</div><h2>${step.title}</h2><p>${step.help}</p>${choices}${input}<div class="workoutStepFoot"><button class="back" id="workoutSetupBack" type="button" ${workoutSetupStep===0?'disabled':''}>← Back</button><button class="primary" id="workoutSetupNext" type="button">${workoutSetupStep===workoutSetupSteps.length-1?'Save setup':'Continue →'}</button></div></section>`;
+        planRows.querySelectorAll('[data-choice]').forEach(btn=>btn.onclick=()=>{const choice=btn.dataset.choice;if(step.multi){const values=[...(workoutSetupDraft.accessories||[])];const index=values.indexOf(choice);if(index>=0)values.splice(index,1);else if(values.length<2)values.push(choice);workoutSetupDraft.accessories=values;}else workoutSetupDraft[step.key]=step.key==='benchNotches'?Number(choice):choice;showWorkoutSetupStep();});
+        if(step.number)$('workoutSetupInput').oninput=e=>{const raw=e.target.value;const parsed=raw===''?null:Number(raw);if(['dumbbell','barbell','cable','assistance'].includes(step.key))workoutSetupDraft.increments[step.key]=parsed;else workoutSetupDraft[step.key]=parsed;};
+        $('workoutSetupBack').onclick=()=>{if(workoutSetupStep>0){workoutSetupStep--;showWorkoutSetupStep();}};
+        $('workoutSetupNext').onclick=()=>{const current=workoutSetupValue(step);if(!step.optional&&(current===null||current===undefined||current===''||(step.multi&&!current.length))){alert('Please choose an answer to continue.');return;}if(step.number&&current!==null&&Number(current)<step.min){alert('Please enter a valid number.');return;}if(workoutSetupStep<workoutSetupSteps.length-1){workoutSetupStep++;showWorkoutSetupStep();return;}saveWorkoutSetup();};
+        planRows.scrollIntoView?.({block:'start'});
+      }
+      function saveWorkoutSetup(){
+        const s=settings.workoutProgram,d=workoutSetupDraft,firstSetup=!s.setupComplete,accessories=d.accessories,prioritiesChanged=JSON.stringify(accessories)!==JSON.stringify(s.accessories||[]);
+        Object.assign(s,{setupComplete:true,benchNotches:d.benchNotches,squatStance:d.squatStance,squatEmphasis:d.squatEmphasis,pullupBaseline:d.pullupBaseline,pullupLevel:firstSetup?(d.pullupBaseline>0?'assisted':'inverted'):s.pullupLevel,rdlStance:d.rdlStance,rdlEmphasis:d.rdlEmphasis,accessories,accessorySelectedAt:firstSetup||prioritiesChanged?todayISO():s.accessorySelectedAt,increments:{...d.increments}});
+        saveWorkoutProgramLocal();activeWorkoutIndex=0;renderEthierWorkout();
+      }
       function renderWorkoutSetup(){
+        workoutSetupDraft=JSON.parse(JSON.stringify(settings.workoutProgram));workoutSetupDraft.increments={...settings.workoutProgram.increments};workoutSetupStep=0;planBackdrop.classList.add('workoutFullscreen');showWorkoutSetupStep();openModal(planBackdrop);return;
         const s=settings.workoutProgram;
         planTitle.textContent='Set up your workout';planMeta.textContent='A few choices that change your program';
         planRows.innerHTML=`<div class="baselineBox"><div class="goalForm">
@@ -2733,14 +2789,32 @@
         const result=WorkoutProgram.progression(ex,previous,null,inc);
         return Number(result.nextWeight)||Number(previous.value)||'';
       }
+      let workoutFocusExercise=-1,workoutFocusStage=0;
       function renderEthierWorkout(){
         const exercises=workoutsForDay('FULL_BODY'),ex=exercises[activeWorkoutIndex],key=exerciseKey('FULL_BODY',ex),today=getLog(store.days[selectedDate]?.workoutLog?.[key]),previous=previousEthierLog(ex),goal=ethierNextLoad(ex,previous),inc=Number(settings.workoutProgram.increments?.[ex.equipment]);
+        planBackdrop.classList.add('workoutFullscreen');
+        if(workoutFocusExercise!==activeWorkoutIndex){workoutFocusExercise=activeWorkoutIndex;workoutFocusStage=0;}
         planTitle.textContent=ex.name;planMeta.textContent=`Exercise ${activeWorkoutIndex+1} of ${exercises.length} · ${prettyDate(selectedDate)}`;
         const previousText=previous?`${previous.setWeights?.[0]||previous.value||'bodyweight'} lb · ${(previous.setReps||[]).filter(meaningful).join(' / ')||'no reps'}`:'First session';
         const assist=ex.equipment==='assistance';
         const mediaHtml=ex.img?renderExerciseMedia(ex.img,ex.alt):`<div class="exercisePlaceholder">Movement demo unavailable · verify form with a coach</div>`;
         const second=ex.superset?`<div class="small" style="margin:10px 0">Then: ${ex.partB}</div>${ex.partBImg?renderExerciseMedia(ex.partBImg,ex.partB):''}`:'';
         planRows.innerHTML=`<div class="exerciseCard">${mediaHtml}<div class="exerciseName">${ex.name}</div><div class="exerciseMeta">${ex.meta} · ${ex.variation.replaceAll('_',' ')}</div><div class="small">${ex.setup||''}</div><div class="goalMeta"><div><strong>Previous:</strong> ${previousText}</div><div><strong>Today:</strong> ${goal?`${goal} lb${assist?' assistance':''}`:assist?'Choose an assistance level':ex.equipment==='bodyweight'?'Bodyweight':'Choose a comfortable starting load'}</div></div><div class="exerciseDesc"><strong>Jeremy Tips</strong><br>${ex.jeremyTips}</div>${second}<div class="setGrid"><div class="setHead">Set</div><div class="setHead">${assist?'Assistance':'Weight'} lb</div><div class="setHead">Reps${ex.superset?' A / B':''}</div>${Array.from({length:ex.sets},(_,i)=>`<div class="setLabel">${i+1}</div><input class="wpWeight" type="number" step="0.5" value="${today.setWeights?.[i]??goal??''}"><input class="wpRep" type="number" step="1" value="${today.setReps?.[i]??''}">`).join('')}</div>${ex.superset?`<div class="small">Immediately after each A set, log ${ex.partB} below.</div><div class="setGrid">${Array.from({length:ex.sets},(_,i)=>`<div class="setLabel">B ${i+1}</div><input class="wpBWeight" type="number" step="0.5" value="${today.partBWeights?.[i]??''}" placeholder="lb"><input class="wpBRep" type="number" step="1" value="${today.partBReps?.[i]??''}" placeholder="reps">`).join('')}</div>`:''}<label class="small"><input id="wpForm" type="checkbox" ${today.formGood!==false?'checked':''}> Reps used acceptable form</label><div id="wpFeedback" class="flagBox"></div><div class="timerBox"><div class="small">Rest before repeating this movement</div><div id="pagedTimer" class="timerDisplay">03:00</div><div class="timerBtns"><button id="startRest" type="button">Start 180 sec</button><button id="resetRest" type="button">Reset</button></div></div></div><div class="workoutNav"><button id="previousExercise" type="button" ${activeWorkoutIndex===0?'disabled':''}>← Previous</button><button id="nextExercise" class="primary" type="button">${activeWorkoutIndex===exercises.length-1?'Complete workout':'Next exercise →'}</button></div>`;
+        const grids=[...planRows.querySelectorAll('.setGrid')],workoutStages=ex.sets*(ex.superset?2:1);
+        const focusHeader=document.createElement('div');focusHeader.className='workoutSetFocus';focusHeader.innerHTML='<div class="workoutStepProgress"><span></span></div><h2 id="workoutFocusTitle"></h2><p id="workoutFocusHint"></p>';grids[0].before(focusHeader);
+        const tips=planRows.querySelector('.exerciseDesc');if(tips){const details=document.createElement('details');details.className='workoutTips';details.innerHTML='<summary>Form tips</summary>';tips.before(details);details.appendChild(tips);}
+        function paintWorkoutFocus(){
+          const review=workoutFocusStage>=workoutStages,setIndex=Math.floor(workoutFocusStage/(ex.superset?2:1)),part=ex.superset&&workoutFocusStage%2?'B':'A';
+          $('workoutFocusTitle').textContent=review?'Exercise complete':`Set ${setIndex+1} of ${ex.sets}${ex.superset?` · ${part}`:''}`;
+          $('workoutFocusHint').textContent=review?'Review your effort, then move on.':part==='B'?ex.partB:`${ex.low}–${ex.high} clean reps · ${goal?`${goal} lb suggested`:assist?'Choose assistance':'Choose a comfortable load'}`;
+          focusHeader.querySelector('span').style.width=`${Math.round((workoutFocusStage+1)/(workoutStages+1)*100)}%`;
+          grids.forEach((grid,gridIndex)=>{const visible=!review&&gridIndex===(part==='B'?1:0);grid.style.display=visible?'grid':'none';[...grid.children].forEach((child,i)=>{if(i<3&&gridIndex===0){child.style.display=visible?'':'none';return;}const offset=gridIndex===0?3:0;child.style.display=visible&&Math.floor((i-offset)/3)===setIndex?'':'none';});});
+          $('wpForm').closest('label').style.display=review?'':'none';$('wpFeedback').style.display=review?'':'none';
+          const timer=planRows.querySelector('.timerBox');if(timer)timer.style.display=!review&&workoutFocusStage>0?'':'none';
+          const previousButton=$('previousExercise');previousButton.disabled=activeWorkoutIndex===0&&workoutFocusStage===0;previousButton.textContent=workoutFocusStage>0?'← Back':'← Previous exercise';
+          $('nextExercise').textContent=review?(activeWorkoutIndex===exercises.length-1?'Complete workout':'Next exercise →'):'Save set →';
+          planRows.querySelector('.exerciseCard')?.scrollIntoView?.({block:'start'});
+        }
         function persist(){const weights=[...planRows.querySelectorAll('.wpWeight')].map(x=>x.value),reps=[...planRows.querySelectorAll('.wpRep')].map(x=>x.value),parts=[...planRows.querySelectorAll('.wpBRep')].map(x=>x.value),partWeights=[...planRows.querySelectorAll('.wpBWeight')].map(x=>x.value),body=Number(store.days[selectedDate]?.bodyWeight||settings.sharedGoal?.current_weight_lb||0);
           const payload={type:'weight',value:weights[0]||'',setWeights:weights,setReps:reps,partBReps:parts,partBWeights:partWeights,scapSqueezes:Number($('wpScap')?.value||0),formGood:$('wpForm').checked,assistanceAmount:assist?Number(weights[0]||0):null,bodyWeightLb:body,exerciseId:ex.id,exerciseFamily:ex.family,exerciseName:ex.name,exerciseOrder:activeWorkoutIndex+1,currentVariation:ex.variation,progressionLevel:ex.variation,targetSets:ex.sets,repMin:ex.low,repMax:ex.high,goalAtTime:goal,programVersion:Number(settings.workoutProgram.program_version)||0,programSetup:settings.workoutProgram,date:selectedDate};
           const result=WorkoutProgram.progression(ex,payload,previous,inc);payload.progressionEligible=result.eligible;payload.nextRecommendedWeight=result.nextWeight||'';payload.nextRecommendedVariation=result.nextVariation||'';$('wpFeedback').textContent=result.message;
@@ -2754,11 +2828,12 @@
         if(ex.family==='rdl'&&ex.variation==='double'&&experience>=3)transition='<button id="wpAdvance" type="button">Barbell loading more convenient?</button>';
         if(transition){$('wpFeedback').insertAdjacentHTML('afterend',`<div class="btns" style="margin:10px 0">${transition}</div>`);$('wpAdvance').onclick=()=>{const next=ex.family==='press'?'advanced':ex.variation==='single'?'double':'barbell';if(confirm(`Switch future ${ex.family.toUpperCase()} workouts to ${next}? This is your choice, not an automatic threshold.`)){if(ex.family==='press')settings.workoutProgram.pressAdvanced=true;else settings.workoutProgram.rdlLevel=next;saveWorkoutProgramLocal();renderEthierWorkout();}};}
         planRows.querySelectorAll('input').forEach(x=>x.addEventListener('change',persist));
-        $('previousExercise').onclick=()=>{persist();activeWorkoutIndex--;renderEthierWorkout();};
-        $('nextExercise').onclick=()=>{persist();const logged=getLog(store.days[selectedDate]?.workoutLog?.[key]);if(logged.nextRecommendedVariation){const question=`${logged.nextRecommendedVariation.replaceAll('_',' ')} is now available. Switch to it for future workouts?`;if(confirm(question)){const field=ex.family==='pull'?'pullupLevel':ex.family==='squat'?'squatLevel':null;if(field){settings.workoutProgram[field]=logged.nextRecommendedVariation;saveWorkoutProgramLocal();}}}
+        $('previousExercise').onclick=()=>{persist();if(workoutFocusStage>0){workoutFocusStage--;paintWorkoutFocus();return;}activeWorkoutIndex--;renderEthierWorkout();};
+        $('nextExercise').onclick=()=>{persist();if(workoutFocusStage<workoutStages){workoutFocusStage++;paintWorkoutFocus();return;}const logged=getLog(store.days[selectedDate]?.workoutLog?.[key]);if(logged.nextRecommendedVariation){const question=`${logged.nextRecommendedVariation.replaceAll('_',' ')} is now available. Switch to it for future workouts?`;if(confirm(question)){const field=ex.family==='pull'?'pullupLevel':ex.family==='squat'?'squatLevel':null;if(field){settings.workoutProgram[field]=logged.nextRecommendedVariation;saveWorkoutProgramLocal();}}}
           if(activeWorkoutIndex<exercises.length-1){activeWorkoutIndex++;renderEthierWorkout();}else renderWorkoutComplete('FULL_BODY',exercises);};
         let left=180,timerId=null;const paint=()=>{$('pagedTimer').textContent=`${String(Math.floor(left/60)).padStart(2,'0')}:${String(left%60).padStart(2,'0')}`;};$('startRest').onclick=()=>{if(timerId)return;timerId=setInterval(()=>{left=Math.max(0,left-1);paint();if(!left){clearInterval(timerId);timerId=null;navigator.vibrate?.(180);}},1000);};$('resetRest').onclick=()=>{if(timerId)clearInterval(timerId);timerId=null;left=180;paint();};
         if(today.setReps?.some(meaningful))$('wpFeedback').textContent=WorkoutProgram.progression(ex,today,previous,inc).message;
+        paintWorkoutFocus();
       }
       function renderPagedWorkout(dayName){
         if(dayName==='FULL_BODY'){renderEthierWorkout();return;}
@@ -2790,7 +2865,7 @@
         planTitle.textContent="Workout Complete"; planMeta.textContent=prettyDate(selectedDate);
         const completed=exercises.filter(ex=>isMeaningfulWorkoutLog({x:store.days[selectedDate]?.workoutLog?.[exerciseKey(dayName,ex)]})).length;
         const day=ensureDayRecord(selectedDate);day.workoutCompleted=completed>0;day.workoutCompletedAt=completed>0?new Date().toISOString():"";day.updatedAt=new Date().toISOString();day.pendingCloudSync=true;saveJSON(STORE_KEY,store);queueAutoSave();renderWeeklyWorkoutProgress();
-        planRows.innerHTML=`<div class="baselineBox"><strong>${completed} of ${exercises.length} exercises logged</strong><div class="small" style="margin-top:6px">Your workout history and next-load recommendations have been saved.</div><button id="finishWorkout" class="primary" type="button" style="margin-top:14px">Done</button></div>`;
+        planRows.innerHTML=`<section class="workoutStep"><div class="workoutStepProgress"><span style="width:100%"></span></div><div class="workoutStepIcon">🎉</div><h2>Workout complete!</h2><p>${completed} of ${exercises.length} exercises logged. Your history and next-load recommendations are ready.</p><div class="workoutStepFoot"><button id="finishWorkout" class="primary" type="button">Back to today →</button></div></section>`;
         $("finishWorkout").onclick=()=>{closeModal(planBackdrop);renderHistory();renderDashboard();};
       }
 
@@ -2801,6 +2876,7 @@
       function closeModal(backdrop){
         backdrop.classList.remove("show");
         backdrop.setAttribute("aria-hidden","true");
+        if(backdrop===planBackdrop)backdrop.classList.remove('workoutFullscreen');
       }
 
       const commonWizardSteps = ["age","sex","height","weight","safety","goal","activity","waist"];
