@@ -2690,7 +2690,7 @@
         try{const res=await cloudGet('getWorkoutProgram');if(!res?.ok)return;
           const remote=res.program,local=settings.workoutProgram;
           if(local?.pendingCloudSync){await syncWorkoutProgram();return;}
-          if(remote&&Number(remote.program_version)>Number(local?.program_version||0)){settings.workoutProgram={...WorkoutProgram.defaults(),...remote,pendingCloudSync:false};saveJSON(SETTINGS_KEY,settings);}
+          if(remote&&Number(remote.program_version)>Number(local?.program_version||0)){settings.workoutProgram={...WorkoutProgram.defaults(),...remote,pendingCloudSync:false};saveJSON(SETTINGS_KEY,settings);if(remote.setupComplete&&planBackdrop.classList.contains('show')&&planTitle.textContent==='Set up your workout'){activeWorkoutIndex=0;renderEthierWorkout();}}
         }catch{}
       }
       function workoutChoice(label,value,current){return `<option value="${value}" ${current===value?'selected':''}>${label}</option>`;}
