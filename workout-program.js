@@ -22,7 +22,8 @@
     pecDeck:'https://fitnessprogramer.com/wp-content/uploads/2021/02/Pec-Deck-Fly.gif'
   };
   const priorities={core:{name:'Dead Bug',low:5,high:5,tip:'Flatten your lower back; extend opposite arm and leg slowly.',img:media.deadBug},glutes:{name:'Hip Abduction',low:10,high:20,tip:'Control both directions.',img:media.hip},calves:{name:'Straight-Leg Calf Raise',low:10,high:20,tip:'Choose a standing or leg-press straight-leg variation.',img:media.calf},arms:{name:'Arm Superset',low:8,high:12,tip:'Incline dumbbell curl to failure, then overhead triceps extension.',img:media.curl},upperBack:{name:'Incline Kelso Shrug',low:8,high:12,tip:'Chest supported, arms straight; drive shoulder blades up and in.'},upperChest:{name:'Lean-Forward Cable Fly / Pec Deck',low:10,high:15,tip:'Lean your torso forward and use a controlled range.',img:media.pecDeck}};
-  const defaults=()=>({version:1,setupComplete:false,benchNotches:0,squatStance:'',squatEmphasis:'balanced',squatLevel:'goblet',pullupBaseline:null,pullupBaselineGrip:'',pullupLevel:'inverted',rdlStance:'',rdlEmphasis:'hamstring',rdlLevel:'single',pressAdvanced:false,accessories:['core'],accessorySelectedAt:'',increments:{dumbbell:null,barbell:null,cable:null,assistance:null},updatedAt:''});
+  const defaultIncrement=ex=>ex.family==='shoulders'||(ex.family==='accessory'&&ex.equipment==='dumbbell')?2.5:5;
+  const defaults=()=>({version:1,setupComplete:false,benchNotches:0,squatStance:'',squatEmphasis:'balanced',squatLevel:'goblet',pullupBaseline:null,pullupBaselineGrip:'',pullupLevel:'inverted',rdlStance:'',rdlEmphasis:'hamstring',rdlLevel:'single',pressAdvanced:false,accessories:['core'],accessorySelectedAt:'',increments:{dumbbell:null,barbell:null,cable:null,assistance:null},workingWeights:{},calibratedExercises:{},calibrationCompletedAt:'',pullChoiceConfirmed:false,updatedAt:''});
   function make(id,name,low,high,tip,img,extra={}){return {id,family:id.split('_')[0],name,sets:3,low,high,unit:'reps',restSec:180,desc:tip,jeremyTips:tip,img:img||'',alt:name,...extra,meta:`3 sets · ${low}–${high} reps`};}
   function plan(input,bodyWeight){
     const s={...defaults(),...(input||{})}; const p=[];
@@ -46,7 +47,11 @@
       if(!Number.isFinite(assistance)||assistance<0)return {eligible:false,message:'Log assistance to judge progress.'};
       if(previous&&assistance>Number(previous.assistanceAmount))return {eligible:false,message:'More assistance is not progression. Rebuild clean reps at this level.'};
       if(ex.variation==='assisted'&&assistance===0&&reps.every(n=>n>=10))return {eligible:true,nextVariation:'neutral',message:'Clean unassisted sets of 10: consider neutral-grip pull-ups.'};
-      return {eligible:false,message:'Add clean reps or reduce assistance when ready.'};
+      if(ex.variation==='assisted'&&reps.every(n=>n>=ex.high)){
+        const step=Number(increment)>0?Number(increment):defaultIncrement(ex);
+        return {eligible:true,nextWeight:Math.max(0,assistance-step),message:`All sets reached the rep target. Try about ${step} lb less assistance next time, or the closest setting your machine offers.`};
+      }
+      return {eligible:false,nextWeight:assistance,message:'Add clean reps or reduce assistance when ready.'};
     }
     if(ex.variation==='inverted'&&reps.every(n=>n>=15))return {eligible:true,nextVariation:'assisted',message:'3 × 15 achieved. Ready to try assisted neutral-grip pull-ups.'};
     if(ex.variation==='neutral'&&reps.every(n=>n>=10))return {eligible:true,nextVariation:'overhand',message:'Sets of 10 achieved. Ready to try strict overhand pull-ups.'};
@@ -58,10 +63,29 @@
     if(!sameLoad)return {eligible:false,message:'Use one working load across all sets before assessing a load increase.'};
     if(reps.some(n=>n<ex.low)&&previous&&Number(previous.nextRecommendedWeight)>0&&weights[0]===Number(previous.nextRecommendedWeight))return {eligible:false,nextWeight:Number(previous.weight)||'',message:'New load fell below the rep floor. Return to the prior working load.'};
     if(reps.every(n=>n>=ex.high)){
-      const step=Number(increment)>0?Number(increment):5;
+      const step=Number(increment)>0?Number(increment):defaultIncrement(ex);
       return {eligible:true,nextWeight:weights[0]+step,message:`All ${ex.sets} sets reached ${ex.high} clean reps. Try about ${step} lb more next time, or use the closest load your gym has.`};
     }
     return {eligible:false,nextWeight:weights[0],message:'Keep this load and build clean reps within the range.'};
   }
-  const api={defaults,plan,progression,priorities,media};if(typeof module!=='undefined'&&module.exports)module.exports=api;root.WorkoutProgram=api;
+  function calibrationDecision(ex,weight,reps,difficulty,partBReps,increment){
+    const bodyweight=ex.equipment==='bodyweight',assistance=ex.equipment==='assistance';
+    const step=Number(increment)>0?Number(increment):defaultIncrement(ex);
+    const load=Number(weight),count=Number(reps),bCount=Number(partBReps);
+    if(!Number.isInteger(count)||count<1||(!bodyweight&&(weight===''||weight===null||!Number.isFinite(load)||load<(assistance?0:0.5)))||(ex.superset&&(!Number.isInteger(bCount)||bCount<1)))return {status:'invalid',message:'Enter the load and clean reps for this test set.'};
+    const below=count<ex.low||(ex.superset&&bCount<ex.low);
+    const above=count>ex.high&&(ex.superset?bCount>ex.high:true);
+    const direction=below||difficulty==='tooHeavy'?'heavier':above||difficulty==='tooEasy'?'lighter':'accepted';
+    if(bodyweight){
+      if(direction==='heavier'&&ex.variation==='inverted')return {status:'accepted',nextWeight:0,message:'Keep the inverted row. Make it easier by standing more upright, then build controlled reps.'};
+      if(direction==='heavier'&&ex.family==='pull')return {status:'changeVariation',message:'This variation is too hard right now. Choose an easier pull-up step.'};
+      if(direction==='lighter'&&ex.family==='pull')return {status:'changeVariation',message:'This looks easy enough to try the next pull-up step.'};
+      return {status:'accepted',nextWeight:0,message:'Save these controlled reps as your starting point.'};
+    }
+    if(assistance&&direction==='lighter'&&load===0)return {status:'changeVariation',message:'You no longer need assistance. Choose the unassisted pull-up step you can do cleanly.'};
+    if(direction==='accepted')return {status:'accepted',nextWeight:load,message:'This looks like a controlled starting load.'};
+    const nextWeight=assistance?(direction==='lighter'?Math.max(0,load-step):load+step):direction==='lighter'?load+step:Math.max(2.5,load-step);
+    return {status:'retry',nextWeight,message:assistance?(direction==='lighter'?'Try a little less assistance.':'Try a little more assistance.'):(direction==='lighter'?'Try the next sensible load.':'Lower the load and keep your form clean.')};
+  }
+  const api={defaults,plan,progression,calibrationDecision,defaultIncrement,priorities,media};if(typeof module!=='undefined'&&module.exports)module.exports=api;root.WorkoutProgram=api;
 })(typeof window!=='undefined'?window:globalThis);
